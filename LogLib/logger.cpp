@@ -51,6 +51,20 @@ level parse_level(const std::string& text, level fallback)
     return fallback;
 }
 
+const char* to_string(level lv)
+{
+    switch (lv) {
+    case level::trace: return "trace";
+    case level::debug: return "debug";
+    case level::info: return "info";
+    case level::warn: return "warn";
+    case level::error: return "error";
+    case level::fatal: return "fatal";
+    case level::off: return "off";
+    }
+    return "?";
+}
+
 logger::logger() = default;
 
 logger::~logger()

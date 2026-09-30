@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+// Server configuration file schema. Read from JSON with protobuf's JsonStringToMessage.
+// Every field is optional: an absent field keeps the built-in default, and command-line
+// options override whatever the file says (see ServerLib/server_config.h).
+// This message never goes on the wire, so it is outside the msgid naming conventions.
+package config;
+
+message log_config {
+  optional string level = 1; // trace | debug | info | warn | error | fatal | off
+  optional string dir = 2;   // folder for the daily log file; empty or absent = console only
+}
+
+message server_config {
+  optional uint32 port = 1;               // listen port, 1..65535 (0 = ephemeral, tests only)
+  optional uint32 threads = 2;            // io_context worker threads, 1..1024
+  optional string sid = 3;                // this server's sid, "domain.idc.type.id"
+  optional uint32 session_timeout_ms = 4; // drop a connection after this long without any packet
+  optional log_config log = 5;
+}

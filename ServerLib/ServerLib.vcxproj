@@ -30,6 +30,8 @@
     <ClCompile Include="session.cpp" />
     <ClCompile Include="lobby_service.cpp" />
     <ClCompile Include="server.cpp" />
+    <ClCompile Include="server_config.cpp" />
+    <ClCompile Include="server_app.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="session_manager.h" />
@@ -37,6 +39,8 @@
     <ClInclude Include="lobby_service.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="server_log.h" />
+    <ClInclude Include="server_config.h" />
+    <ClInclude Include="server_app.h" />
     <ClInclude Include="..\common\server_define.h" />
     <ClInclude Include="..\common\utf8.h" />
     <ClInclude Include="..\common\console.h" />

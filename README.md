@@ -22,7 +22,7 @@ Components
 | `NetworkClient` | Interactive console client |
 | `DummyClient` | Load-test client |
 | `common/lpn` | Wire protocol implementation (header-only) |
-| `tests` | `wire_test` (byte level), `smoke_test` (in-process end to end) |
+| `tests` | `wire_test` (byte level), `smoke_test` (in-process end to end), `app_test` (settings and start-up phases) |
 
 Build
 ---
@@ -56,12 +56,13 @@ Run
 ---
 
 ```
-NetworkServer --port 10000            # ESC or Ctrl+C stops it
+NetworkServer --port 10000            # ESC or Ctrl+C stops it; --config server.json reads a JSON file
 NetworkClient 127.0.0.1 10000 <name>
 DummyClient --ip 127.0.0.1 --port 10000 --session 100 --duration 10
 ```
 
 Every executable accepts `--log-level <level>` and `--log-dir <folder>` (no file log by default).
+The server also reads `--config <file>`; see `NetworkServer/server.example.json`. Command-line options override the file.
 
 Documents
 ---

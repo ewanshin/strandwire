@@ -244,3 +244,6 @@ ModelManifest.xml
 # Locally built third-party artifacts (see tools/build_protobuf.ps1)
 third_party/_install/
 third_party/_build/
+
+# Local server configuration (copy NetworkServer/server.example.json)
+NetworkServer/server.json

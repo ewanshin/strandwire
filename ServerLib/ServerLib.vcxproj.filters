@@ -19,6 +19,8 @@
     <ClCompile Include="session.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="lobby_service.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="server.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="server_config.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="server_app.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="session_manager.h"><Filter>Header Files</Filter></ClInclude>
@@ -26,6 +28,8 @@
     <ClInclude Include="lobby_service.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="server.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="server_log.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="server_config.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="server_app.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\common\error_text.h"><Filter>common</Filter></ClInclude>
     <ClInclude Include="..\common\server_define.h"><Filter>common</Filter></ClInclude>
     <ClInclude Include="..\common\utf8.h"><Filter>common</Filter></ClInclude>

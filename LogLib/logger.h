@@ -48,6 +48,9 @@ enum class level : int
 // Parses "trace", "debug", "info", "warn", "error", "fatal", "off". Returns fallback otherwise.
 level parse_level(const std::string& text, level fallback);
 
+// The inverse of parse_level: "trace" .. "off".
+const char* to_string(level lv);
+
 struct configuration
 {
     level log_level = level::info;

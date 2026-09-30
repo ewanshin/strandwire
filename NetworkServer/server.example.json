@@ -1,0 +1,10 @@
+{
+  "port": 10000,
+  "threads": 4,
+  "sid": "0.0.11.1",
+  "session_timeout_ms": 5000,
+  "log": {
+    "level": "info",
+    "dir": ""
+  }
+}

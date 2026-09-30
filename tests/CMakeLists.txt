@@ -7,6 +7,11 @@ target_link_libraries(smoke_test PRIVATE ServerLib)
 add_test(NAME smoke_test COMMAND smoke_test)
 set_tests_properties(smoke_test PROPERTIES TIMEOUT 60)
 
+add_executable(app_test app_test.cpp)
+target_link_libraries(app_test PRIVATE ServerLib)
+add_test(NAME app_test COMMAND app_test)
+set_tests_properties(app_test PROPERTIES TIMEOUT 60)
+
 # The Visual Studio solution (strandwire.sln) is maintained by hand next to these CMake
 # targets. This test fails when a vcxproj and its CMake target list different sources.
 set(_vs_sync_manifest "")
@@ -17,7 +22,8 @@ foreach(_pair IN ITEMS
     "NetworkClient=NetworkClient/NetworkClient.vcxproj"
     "DummyClient=DummyClient/DummyClient.vcxproj"
     "wire_test=tests/wire_test.vcxproj"
-    "smoke_test=tests/smoke_test.vcxproj")
+    "smoke_test=tests/smoke_test.vcxproj"
+    "app_test=tests/app_test.vcxproj")
   string(REPLACE "=" ";" _parts "${_pair}")
   list(GET _parts 0 _tgt)
   list(GET _parts 1 _proj)

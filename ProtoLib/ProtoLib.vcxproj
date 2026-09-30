@@ -45,10 +45,12 @@
   <ItemGroup>
     <CustomBuild Include="chat.proto" />
     <CustomBuild Include="error_code.proto" />
+    <CustomBuild Include="server_config.proto" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(NetSysGenDir)chat.pb.cc" />
     <ClCompile Include="$(NetSysGenDir)error_code.pb.cc" />
+    <ClCompile Include="$(NetSysGenDir)server_config.pb.cc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="NetSysCheckProtobuf" BeforeTargets="PrepareForBuild">
