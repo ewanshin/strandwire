@@ -19,8 +19,12 @@ namespace
 constexpr std::size_t MAX_NAME_BYTES = 64;
 constexpr auto LOBBY = static_cast<std::uint8_t>(lpn::tunnel::lobby);
 
-// Handlers run on the session's strand.
+// Handlers run on the session's strand, so they may read and write the session freely. They must
+// not touch other sessions directly; the only cross-session path is session_manager::broadcast.
+// Each request always gets exactly one reply on the same tunnel, success or not.
 
+// login_req: claim a player id for this connection. The name is the only input and is checked
+// here because protobuf lets non-UTF-8 strings through in proto2.
 void on_login_req(session& s, const chat::login_req& req)
 {
     chat::login_res res;
@@ -38,6 +42,9 @@ void on_login_req(session& s, const chat::login_req& req)
     s.send_message(lpn::tunnel::lobby, res);
 }
 
+// chat_req: reply chat_res to the sender, then broadcast a chat_noti (sender included) to every
+// session that has the LOBBY tunnel open. The sender's name comes from the session, never from
+// the request, so it cannot be spoofed.
 void on_chat_req(session& s, const chat::chat_req& req)
 {
     chat::chat_res res;
@@ -68,6 +75,8 @@ void on_chat_req(session& s, const chat::chat_req& req)
 
 } // namespace
 
+// The msgid of each handler is derived from its parameter type (chat.login_req etc.), so this is
+// the whole registration: no id table to keep in sync with chat.proto.
 void register_lobby_handlers(lpn::message_dispatcher<session>& dispatcher)
 {
     dispatcher.regist(&on_login_req);

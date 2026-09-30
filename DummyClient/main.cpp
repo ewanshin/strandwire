@@ -15,6 +15,7 @@
 namespace
 {
 
+// Returns the value following `name` in argv, or nullptr. Options are all "--name value".
 const char* option_value(int argc, char* argv[], std::string_view name)
 {
     for (int i = 1; i + 1 < argc; ++i)
@@ -50,6 +51,8 @@ int main(int argc, char* argv[])
     if (!client_log.start(log_conf))
         return 1;
 
+    // One io_context, one thread, N sessions. Sessions are kept in `list` only so their
+    // statistics can be read after io.run() returns; the io_context keeps them alive meanwhile.
     asio::io_context io;
     std::vector<std::shared_ptr<dummy_session>> list;
     try {
@@ -60,6 +63,7 @@ int main(int argc, char* argv[])
             list.push_back(std::move(s));
         }
 
+        // --duration N stops the whole run after N seconds; 0 runs until Ctrl+C.
         asio::steady_timer stop_timer(io);
         if (duration_sec > 0) {
             stop_timer.expires_after(std::chrono::seconds(duration_sec));
@@ -76,6 +80,8 @@ int main(int argc, char* argv[])
     }
     client_log.shutdown_async(); // flush the log before the statistics line; statics are still alive
 
+    // The statistics line is the program's output (scripts parse it), so it goes to stdout, not the
+    // log. Exit code 0 only if every session logged in: a pass/fail signal for scripts.
     std::size_t logged_in = 0;
     std::size_t chats = 0;
     for (const auto& s : list) {

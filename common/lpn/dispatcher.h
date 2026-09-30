@@ -62,6 +62,8 @@ public:
     }
 
     // payload = [uint32 msgid][protobuf body]. out_msgid receives the id whenever it could be read.
+    // A fresh message object is created per dispatch (New() on the stored prototype), so handlers
+    // may keep or move the message and dispatch is safe to call from several threads at once.
     dispatch_result dispatch(Ctx& ctx, std::span<const char> payload, std::uint32_t* out_msgid = nullptr) const
     {
         if (payload.size() < MSGID_SIZE)
@@ -77,6 +79,8 @@ public:
 
         std::unique_ptr<google::protobuf::Message> msg(it->second.prototype->New());
         const auto body = payload.subspan(MSGID_SIZE);
+        // ParsePartial + IsInitialized instead of ParseFromArray: the two failures are reported
+        // separately (bad bytes vs. a missing required field), which the server treats differently.
         if (!msg->ParsePartialFromArray(body.data(), static_cast<int>(body.size())))
             return dispatch_result::parse_error;
         if (!msg->IsInitialized())
@@ -102,6 +106,8 @@ private:
         handler_fn handler;
     };
 
+    // Stores one prototype of M under its msgid. Two registrations with the same id are a
+    // programming error (a duplicate, or two names that hash alike) and throw at start-up.
     template <class M>
     void add(handler_fn handler)
     {

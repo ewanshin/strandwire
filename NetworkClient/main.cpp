@@ -46,12 +46,17 @@ int main(int argc, char* argv[])
     if (!client_log.start(log_conf))
         return 1;
 
+    // Two threads: the io_context runs the socket on a background thread, and this thread only
+    // blocks on stdin. The work guard keeps io.run() alive while no async operation is pending
+    // (e.g. before the connect completes).
     asio::io_context io;
     auto work = asio::make_work_guard(io);
     auto session = std::make_shared<client_session>(io, name);
     session->start(host, port);
     std::thread io_thread([&io] { io.run(); });
 
+    // Every line is handed to the io thread with asio::post, so the socket is only ever touched
+    // from one thread.
     std::cout << "type a message and press enter. 'quit' to exit." << std::endl;
     std::string line;
     while (console::read_line(line)) { // UTF-8, also when typed into a CP949 console
@@ -62,6 +67,8 @@ int main(int argc, char* argv[])
         asio::post(io, [session, line] { session->send_chat(line); });
     }
 
+    // Orderly exit: close the socket on the io thread, drop the work guard so io.run() returns
+    // once the close has completed, then join.
     asio::post(io, [session] { session->close(); });
     work.reset();
     io_thread.join();

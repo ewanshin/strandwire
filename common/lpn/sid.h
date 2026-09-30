@@ -14,11 +14,12 @@ namespace lpn
 
 struct sid
 {
-    std::uint16_t domain = 0;
-    std::uint16_t idc = 0;
-    std::uint16_t type = 0; // server type; equals the tunnel id
-    std::uint16_t id = 0;   // instance number; 0 = anycast
+    std::uint16_t domain = 0; // service / world
+    std::uint16_t idc = 0;    // data centre (region); reserved for a gateway per region
+    std::uint16_t type = 0;   // server type; equals the tunnel id
+    std::uint16_t id = 0;     // instance number; 0 = anycast
 
+    // Packing on the wire: domain in the top 16 bits, id in the bottom 16, big-endian as a whole.
     static constexpr sid from_value(std::uint64_t v)
     {
         return sid{static_cast<std::uint16_t>(v >> 48), static_cast<std::uint16_t>(v >> 32),

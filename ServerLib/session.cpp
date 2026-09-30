@@ -8,6 +8,8 @@
 #include "common/error_text.h"
 #include "common/lpn/msgid.h"
 
+// The socket arrives already bound to its strand (server::accept_loop created it there), so every
+// asio completion for this session runs on that strand from the first byte on.
 session::session(socket_type socket, session_manager& manager, const server_context& ctx)
     : socket_(std::move(socket)),
       manager_(manager),
@@ -17,12 +19,15 @@ session::session(socket_type socket, session_manager& manager, const server_cont
       watchdog_timer_(socket_.get_executor())
 {
     std::error_code ec;
+    // Chat packets are small and latency matters more than throughput: disable Nagle.
     socket_.set_option(asio::ip::tcp::no_delay(true), ec);
-    const auto ep = socket_.remote_endpoint(ec);
+    const auto ep = socket_.remote_endpoint(ec); // fails if the peer already went away
     if (!ec)
         server_log.info("[session ", id_, "] connected from ", ep.address().to_string(), ":", ep.port());
 }
 
+// Two coroutines per session, both on the strand: the receive loop and the timeout watchdog.
+// Each captures `self`, so the session stays alive at least until both have finished.
 void session::start()
 {
     asio::co_spawn(strand(), [self = shared_from_this()] { return self->run(); }, asio::detached);
@@ -45,6 +50,9 @@ std::uint64_t session::tunnel_sid(std::uint8_t tunnel_id) const noexcept
     return tunnel_id < tunnels_.size() ? tunnels_[tunnel_id] : 0;
 }
 
+// Receive loop: one frame at a time until the connection ends. Every way out converges on close():
+// a clean EOF, a socket error, a protocol violation thrown by read_frame/on_frame, or
+// operation_aborted when close() itself cancelled the pending read.
 asio::awaitable<void> session::run()
 {
     try {
@@ -69,6 +77,8 @@ asio::awaitable<void> session::run()
 // Any packet counts, which is why clients send a NOOP heartbeat every 3 seconds.
 asio::awaitable<void> session::watchdog()
 {
+    // Poll at a quarter of the timeout: a silent connection is dropped at most 25% late, and no
+    // timer has to be re-armed on every received packet.
     const auto period = std::max(ctx_.session_timeout / 4, std::chrono::milliseconds(20));
     try {
         while (open_) {
@@ -82,6 +92,8 @@ asio::awaitable<void> session::watchdog()
     }
 }
 
+// First dispatch level: by packet type. Tunnel bookkeeping (CONNECT/DISCONNECT) is handled here;
+// DATA goes on to the msgid dispatcher of the tunnel's service.
 void session::on_frame(const lpn::frame& f)
 {
     switch (f.type) {
@@ -105,6 +117,8 @@ void session::on_frame(const lpn::frame& f)
     }
 }
 
+// Heartbeats carry no sid and need no tunnel. The reply mirrors the request; run() already
+// refreshed last_recv_, which is the heartbeat's real purpose.
 void session::on_heartbeat(const lpn::frame& f)
 {
     switch (static_cast<lpn::heartbeat_command>(f.param)) {
@@ -132,6 +146,8 @@ void session::on_disconnect(std::uint8_t tunnel_id, std::uint64_t server_sid)
     }
 }
 
+// CONNECT: the client asks to bind a tunnel to a server. The reply carries the sid actually bound
+// (this server's own), which the client must use in its DATA packets from then on.
 void session::on_connect(std::uint8_t tunnel_id, std::uint64_t requested_sid)
 {
     const lpn::sid requested = lpn::sid::from_value(requested_sid);
@@ -153,6 +169,8 @@ void session::on_connect(std::uint8_t tunnel_id, std::uint64_t requested_sid)
     server_log.info("[session ", id_, "] tunnel ", static_cast<int>(tunnel_id), " open -> ", mine.to_string());
 }
 
+// DATA: the message itself. Routing is by the tunnel table, the msgid picks the handler.
+// The decoder already guaranteed tunnel_id() < TUNNEL_COUNT, so indexing tunnels_ is safe.
 void session::on_data(const lpn::frame& f)
 {
     const std::uint8_t t = f.tunnel_id();
@@ -177,11 +195,14 @@ void session::on_data(const lpn::frame& f)
     switch (r) {
     case lpn::dispatch_result::ok:
         break;
+    // A message this server does not know, or one missing a required field, is the client's
+    // problem, not a broken stream: drop it and keep the connection.
     case lpn::dispatch_result::unknown_msgid:
     case lpn::dispatch_result::not_initialized:
         server_log.warn("[session ", id_, "] dropped message: ", lpn::to_string(r), " msgid=", msgid, ' ',
                         ctx_.lobby.name_of(msgid));
         break;
+    // Bytes that do not even parse mean the stream is corrupt or the peer is not our client.
     case lpn::dispatch_result::too_short:
     case lpn::dispatch_result::parse_error:
         close(std::string("malformed message: ") + lpn::to_string(r));
@@ -189,11 +210,14 @@ void session::on_data(const lpn::frame& f)
     }
 }
 
+// Encodes once and hands the bytes to the queue. For a reply to one session; broadcasts encode
+// once in the caller and share the buffer (session_manager::broadcast).
 void session::send_frame(const lpn::frame& f)
 {
     send(lpn::make_shared_buffer(f));
 }
 
+// Wraps a protobuf message in a DATA packet on tunnel t, using the sid the tunnel is bound to.
 bool session::send_message(lpn::tunnel t, const google::protobuf::Message& msg)
 {
     const auto tunnel_id = static_cast<std::uint8_t>(t);
@@ -203,10 +227,15 @@ bool session::send_message(lpn::tunnel t, const google::protobuf::Message& msg)
     return true;
 }
 
+// Queue a packet for sending. Writes are serialised through the queue because asio allows only
+// one async_write in flight per socket. A single write_loop coroutine drains the queue; it is
+// spawned on demand and ends when the queue is empty.
 void session::send(lpn::shared_buffer buf)
 {
     if (!open_)
         return;
+    // A client that cannot keep up with what it is sent (a slow reader in a busy broadcast) would
+    // otherwise grow the queue without bound. Drop it instead.
     if (send_queue_.size() >= MAX_SEND_QUEUE) {
         close("send queue overflow");
         return;
@@ -230,12 +259,16 @@ asio::awaitable<void> session::write_loop()
             co_await asio::async_write(socket_, asio::buffer(*buf), asio::use_awaitable);
         }
     } catch (const std::system_error& e) {
-        if (e.code() != asio::error::operation_aborted)
+        if (e.code() != asio::error::operation_aborted) // aborted = close() cancelled the write
             close(netsys::describe(e.code()));
     }
-    writing_ = false;
+    writing_ = false; // the next send() spawns a new loop
 }
 
+// Tears the connection down exactly once. Cancelling the socket and the timer makes the pending
+// async operations of run(), write_loop() and watchdog() complete with operation_aborted, so the
+// three coroutines end and release their `self` references; removing the map entry releases the
+// last one. The tunnel table is cleared so a late DATA cannot be routed.
 void session::close(std::string_view reason)
 {
     if (!open_)

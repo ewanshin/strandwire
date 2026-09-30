@@ -20,6 +20,8 @@ namespace
 constexpr auto LOBBY = lpn::tunnel::lobby;
 constexpr auto LOBBY_ID = static_cast<std::uint8_t>(lpn::tunnel::lobby);
 
+// 0..999 ms before the first chat line, so N sessions started together do not all chat in the
+// same millisecond every second. thread_local because the generator is not thread-safe.
 std::chrono::milliseconds random_delay()
 {
     thread_local std::mt19937 rng{std::random_device{}()};
@@ -29,6 +31,7 @@ std::chrono::milliseconds random_delay()
 
 } // namespace
 
+// index becomes the player name "UserName<index>"; main() numbers sessions from 1001.
 dummy_session::dummy_session(asio::io_context& io, int index)
     : io_(io),
       socket_(io),
@@ -47,6 +50,8 @@ void dummy_session::start(asio::ip::tcp::endpoint target)
     asio::co_spawn(io_, [self = shared_from_this(), target] { return self->run(target); }, asio::detached);
 }
 
+// Same flow as NetworkClient: connect -> heartbeat -> CONNECT(LOBBY, anycast) -> read frames.
+// All N sessions share one io_context thread, so nothing here needs synchronisation.
 asio::awaitable<void> dummy_session::run(asio::ip::tcp::endpoint target)
 {
     try {
@@ -69,6 +74,8 @@ asio::awaitable<void> dummy_session::run(asio::ip::tcp::endpoint target)
     close();
 }
 
+// The load itself: one chat_req per second per session, started after login succeeds. With N
+// sessions the server broadcasts N*N chat_noti per second (see chats_received in the statistics).
 asio::awaitable<void> dummy_session::chat_loop()
 {
     try {
@@ -100,11 +107,14 @@ asio::awaitable<void> dummy_session::heartbeat_loop()
     }
 }
 
+// Synchronous write on the single io thread. A write error throws std::system_error, which the
+// calling coroutine (run or chat_loop) turns into a close.
 void dummy_session::send_message(const google::protobuf::Message& m)
 {
     lpn::write_frame(socket_, lpn::make_tunnel(LOBBY, lpn::packet_type::data, lobby_sid_, lpn::encode_message(m)));
 }
 
+// Tunnel-level handling; DATA goes to the msgid dispatcher (on_login_res etc.).
 void dummy_session::on_frame(const lpn::frame& f)
 {
     if (!f.is_tunnel() || f.tunnel_id() != LOBBY_ID)
@@ -152,11 +162,14 @@ void dummy_session::on_chat_res(const chat::chat_res& res)
         client_log.warn("[", name_, "] chat failed: ", res.error_code_());
 }
 
+// Every broadcast that reaches this session, including its own lines. Summed by main() into the
+// chats_received statistic, which is the throughput number of the load test.
 void dummy_session::on_chat_noti(const chat::chat_noti&)
 {
     ++chats_received_;
 }
 
+// Idempotent. Cancelling the timers ends chat_loop and heartbeat_loop; closing the socket ends run().
 void dummy_session::close()
 {
     std::error_code ec;

@@ -18,6 +18,8 @@ constexpr auto LOBBY = lpn::tunnel::lobby;
 constexpr auto LOBBY_ID = static_cast<std::uint8_t>(lpn::tunnel::lobby);
 } // namespace
 
+// The client keeps its own msgid dispatcher for the messages the server sends on the LOBBY
+// tunnel; handlers are member functions and the msgid comes from the parameter type.
 client_session::client_session(asio::io_context& io, std::string name)
     : io_(io), socket_(io), heartbeat_timer_(io), name_(std::move(name))
 {
@@ -26,6 +28,8 @@ client_session::client_session(asio::io_context& io, std::string name)
     lobby_.regist(&client_session::on_chat_noti);
 }
 
+// Launches the connection coroutine. Everything after this runs on the io_context thread; the
+// stdin thread in main() reaches the session only through asio::post (see send_chat).
 void client_session::start(std::string host, std::uint16_t port)
 {
     asio::co_spawn(io_, [self = shared_from_this(), host = std::move(host), port] {
@@ -33,6 +37,7 @@ void client_session::start(std::string host, std::uint16_t port)
     }, asio::detached);
 }
 
+// One console line -> one chat_req. Called on the io_context thread via asio::post from main().
 void client_session::send_chat(std::string_view text)
 {
     if (!socket_.is_open())
@@ -52,6 +57,8 @@ void client_session::send_chat(std::string_view text)
     send_message(req);
 }
 
+// Synchronous write: the client sends little and only from the io thread, so a blocking write is
+// simpler than a send queue and never interleaves with another write.
 void client_session::send_message(const google::protobuf::Message& m)
 {
     try {
@@ -62,6 +69,8 @@ void client_session::send_message(const google::protobuf::Message& m)
     }
 }
 
+// Idempotent. Cancelling the timer ends heartbeat_loop; closing the socket ends run() with
+// operation_aborted, which is not reported as an error.
 void client_session::close()
 {
     heartbeat_timer_.cancel();
@@ -72,6 +81,8 @@ void client_session::close()
     socket_.close(ec);
 }
 
+// Connect, open the LOBBY tunnel, then read frames until the connection ends. Login happens in
+// on_frame once the server's CONNECT reply tells us which sid to use.
 asio::awaitable<void> client_session::run(std::string host, std::uint16_t port)
 {
     try {
@@ -99,6 +110,8 @@ asio::awaitable<void> client_session::run(std::string host, std::uint16_t port)
     close();
 }
 
+// NOOPREQ every HEARTBEAT_INTERVAL (3 s). The server drops a connection after SESSION_TIMEOUT
+// (5 s) without any packet, so one lost heartbeat is tolerated, two are not.
 asio::awaitable<void> client_session::heartbeat_loop()
 {
     try {
@@ -113,6 +126,8 @@ asio::awaitable<void> client_session::heartbeat_loop()
     }
 }
 
+// Tunnel-level handling of one received frame. DATA goes to the msgid dispatcher; the other
+// tunnel packets change the tunnel state (bound sid) or end the session.
 void client_session::on_frame(const lpn::frame& f)
 {
     if (!f.is_tunnel())
@@ -121,6 +136,8 @@ void client_session::on_frame(const lpn::frame& f)
         return;
 
     switch (f.type) {
+    // The server accepted the tunnel and told us its real sid: from now on DATA carries it.
+    // This is also the moment to log in.
     case lpn::packet_type::connect: {
         lobby_sid_ = f.server_sid;
         client_log.info("LOBBY tunnel open [server:", lpn::sid::from_value(lobby_sid_).to_string(), "]");
@@ -136,6 +153,7 @@ void client_session::on_frame(const lpn::frame& f)
             client_log.warn("dropped message: ", lpn::to_string(r), " msgid=", msgid);
         break;
     }
+    // The server moved us to another instance: only the sid changes, the tunnel stays open.
     case lpn::packet_type::shift:
         lobby_sid_ = f.server_sid;
         client_log.info("LOBBY tunnel moved [server:", lpn::sid::from_value(lobby_sid_).to_string(), "]");

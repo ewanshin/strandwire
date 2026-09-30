@@ -71,9 +71,9 @@ public:
     session_manager& manager() noexcept { return manager_; }
 
 private:
-    asio::awaitable<void> run();
-    asio::awaitable<void> write_loop();
-    asio::awaitable<void> watchdog();
+    asio::awaitable<void> run();        // receive loop: read_frame -> on_frame until closed
+    asio::awaitable<void> write_loop(); // drains send_queue_ with one async_write at a time
+    asio::awaitable<void> watchdog();   // closes the session after session_timeout without input
 
     void on_frame(const lpn::frame& f);
     void on_heartbeat(const lpn::frame& f);
@@ -81,16 +81,16 @@ private:
     void on_disconnect(std::uint8_t tunnel_id, std::uint64_t server_sid);
     void on_data(const lpn::frame& f);
 
-    socket_type socket_;
-    session_manager& manager_;
-    const server_context& ctx_;
-    std::uint32_t id_;
-    std::int32_t player_id_ = INVALID_ID;
-    std::string name_;
-    bool open_ = true;
-    bool writing_ = false;
-    std::array<std::uint64_t, lpn::TUNNEL_COUNT> tunnels_{};
-    std::chrono::steady_clock::time_point last_recv_;
-    asio::steady_timer watchdog_timer_;
-    std::deque<lpn::shared_buffer> send_queue_;
+    socket_type socket_;               // its executor is this session's strand
+    session_manager& manager_;         // registry; only touched through its thread-safe methods
+    const server_context& ctx_;        // shared, read-only server settings and handler table
+    std::uint32_t id_;                 // connection number, for logs
+    std::int32_t player_id_ = INVALID_ID; // INVALID_ID until login_req succeeds
+    std::string name_;                 // player name from login_req, UTF-8
+    bool open_ = true;                 // cleared by close(); every loop checks it
+    bool writing_ = false;             // a write_loop coroutine is draining send_queue_
+    std::array<std::uint64_t, lpn::TUNNEL_COUNT> tunnels_{}; // tunnel id -> bound sid, 0 = closed
+    std::chrono::steady_clock::time_point last_recv_;        // refreshed by every received frame
+    asio::steady_timer watchdog_timer_;                      // drives watchdog(); cancelled by close()
+    std::deque<lpn::shared_buffer> send_queue_;              // encoded packets waiting for write_loop
 };

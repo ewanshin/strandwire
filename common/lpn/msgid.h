@@ -20,6 +20,8 @@ namespace lpn
 
 inline constexpr std::size_t MSGID_SIZE = 4;
 
+// FNV-1a, 32-bit: xor each byte into the hash, then multiply by the prime. constexpr so a msgid
+// can be a compile-time constant where the name is a literal.
 constexpr std::uint32_t fnv1a32(std::string_view s)
 {
     std::uint32_t hash = 2166136261u; // FNV offset basis
@@ -30,6 +32,8 @@ constexpr std::uint32_t fnv1a32(std::string_view s)
     return hash;
 }
 
+// msgid of a message instance (runtime type name) and of a message type (descriptor). Both give
+// the same value for the same type; the instance form is what encode_message uses.
 inline std::uint32_t msgid_of(const google::protobuf::Message& m)
 {
     return fnv1a32(m.GetTypeName());

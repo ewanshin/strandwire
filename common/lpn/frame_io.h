@@ -35,6 +35,9 @@ asio::awaitable<frame> read_frame(AsyncReadStream& stream)
     co_return decode_body(body);
 }
 
+// Encodes and writes one frame. asio::async_write only returns after every byte was accepted, so
+// one call never leaves a partial packet on the wire. Callers must not overlap two writes on the
+// same stream (the server's session serialises them through its send queue).
 template <class AsyncWriteStream>
 asio::awaitable<void> async_write_frame(AsyncWriteStream& stream, const frame& f)
 {
@@ -42,6 +45,7 @@ asio::awaitable<void> async_write_frame(AsyncWriteStream& stream, const frame& f
     co_await asio::async_write(stream, asio::buffer(bytes), asio::use_awaitable);
 }
 
+// Blocking variant for the clients, which send little and only from one thread.
 template <class SyncWriteStream>
 void write_frame(SyncWriteStream& stream, const frame& f)
 {
@@ -49,6 +53,8 @@ void write_frame(SyncWriteStream& stream, const frame& f)
     asio::write(stream, asio::buffer(bytes));
 }
 
+// An encoded packet owned by reference count. A broadcast encodes once and hands the same buffer
+// to every recipient's send queue; the bytes are freed when the last write completes.
 using shared_buffer = std::shared_ptr<const std::vector<char>>;
 
 // Encoded packet that can be queued on many sessions without copying.
