@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{F7569CD1-A660-4034-929C-8E1CA83B681D}</ProjectGuid>
+    <RootNamespace>ServerLib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="..\strandwire.config.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="..\strandwire.props" />
+  </ImportGroup>
+  <ItemGroup>
+    <ClCompile Include="session_manager.cpp" />
+    <ClCompile Include="session.cpp" />
+    <ClCompile Include="lobby_service.cpp" />
+    <ClCompile Include="server.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="session_manager.h" />
+    <ClInclude Include="session.h" />
+    <ClInclude Include="lobby_service.h" />
+    <ClInclude Include="server.h" />
+    <ClInclude Include="server_log.h" />
+    <ClInclude Include="..\common\server_define.h" />
+    <ClInclude Include="..\common\utf8.h" />
+    <ClInclude Include="..\common\console.h" />
+    <ClInclude Include="..\common\error_text.h" />
+    <ClInclude Include="..\common\lpn\wire.h" />
+    <ClInclude Include="..\common\lpn\sid.h" />
+    <ClInclude Include="..\common\lpn\frame.h" />
+    <ClInclude Include="..\common\lpn\msgid.h" />
+    <ClInclude Include="..\common\lpn\frame_io.h" />
+    <ClInclude Include="..\common\lpn\dispatcher.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Build order only (chat.pb.h must exist). ProtoLib.lib is not merged into ServerLib.lib;
+         every executable references ProtoLib itself. -->
+    <ProjectReference Include="..\ProtoLib\ProtoLib.vcxproj">
+      <Project>{A964BDA8-1DDD-40A2-96B4-E3F0694E282D}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

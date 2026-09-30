@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Stage 2 of the shared Visual Studio settings. Every vcxproj imports this in its
+  PropertySheets group. Keep these values in step with the root CMakeLists.txt
+  (include paths, preprocessor definitions, language standard, warning level).
+  Paths are anchored on this file, not on $(SolutionDir), so a vcxproj also builds alone.
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <NetSysRoot>$(MSBuildThisFileDirectory)</NetSysRoot>
+    <OutDir>$(NetSysRoot)build\vs\$(Configuration)\bin\</OutDir>
+    <IntDir>$(NetSysRoot)build\vs\$(Configuration)\obj\$(ProjectName)\</IntDir>
+    <!-- protobuf installed by tools\build_protobuf.ps1 (not built by this solution). -->
+    <ProtobufDir>$(NetSysRoot)third_party\_install\protobuf\$(Configuration)\</ProtobufDir>
+    <ProtocExe>$(ProtobufDir)bin\protoc.exe</ProtocExe>
+    <!-- Code generated from ProtoLib\*.proto. Shared by both configurations. -->
+    <NetSysGenDir>$(NetSysRoot)build\vs\gen\</NetSysGenDir>
+    <!-- External include dirs: warnings from these headers are suppressed (see ExternalWarningLevel). -->
+    <!-- spdlog is header-only and included only by LogLib\logger.cpp. -->
+    <ExternalIncludePath>$(ProtobufDir)include;$(NetSysGenDir);$(NetSysRoot)third_party\spdlog\include;$(ExternalIncludePath)</ExternalIncludePath>
+    <LibraryPath>$(ProtobufDir)lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(NetSysRoot);$(NetSysRoot)third_party\asio\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>ASIO_STANDALONE;ASIO_NO_DEPRECATED;_WIN32_WINNT=0x0A00;WIN32_LEAN_AND_MEAN;NOMINMAX;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>ws2_32.lib;mswsock.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>libprotobufd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>libprotobuf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

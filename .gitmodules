@@ -1,0 +1,9 @@
+[submodule "third_party/asio"]
+	path = third_party/asio
+	url = https://github.com/chriskohlhoff/asio.git
+[submodule "third_party/protobuf"]
+	path = third_party/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git
+[submodule "third_party/spdlog"]
+	path = third_party/spdlog
+	url = https://github.com/gabime/spdlog.git

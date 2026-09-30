@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package chat;
+
+// Messages on the LOBBY tunnel (tunnel id 11).
+// The package and message names are part of the wire contract:
+//   msgid = FNV-1a32("chat.<message name>")
+// Conventions: snake_case, suffix _req / _res / _noti,
+// and every _res starts with `required int32 error_code_ = 1` holding an nserror.error_code.
+
+message login_req
+{
+    required string name = 1;
+}
+
+message login_res
+{
+    required int32 error_code_ = 1;
+    optional int32 player_id = 2;
+}
+
+message chat_req
+{
+    required string text = 1;
+}
+
+// Acknowledges chat_req to the sender only.
+message chat_res
+{
+    required int32 error_code_ = 1;
+}
+
+// Broadcast to every session that has the LOBBY tunnel open, the sender included.
+message chat_noti
+{
+    required int32 player_id = 1;
+    required string name = 2;
+    required string text = 3;
+}

@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+package nserror;
+
+// Result codes carried in the first field (error_code_) of every *_res message.
+// Ranges: 100 per domain.
+//   0        success
+//   1-99     system
+//   100-199  auth
+//   200-299  lobby (chat lives here)
+//   300-399  item
+//   400-499  quest
+//   500-599  region
+enum error_code
+{
+    SUCCESS = 0;
+
+    SYSTEM_ERROR = 1;
+
+    NOT_LOGGED_IN = 200;
+    ALREADY_LOGGED_IN = 201;
+    INVALID_NAME = 202;  // empty, too long, or not valid UTF-8
+    INVALID_TEXT = 203;  // chat text is not valid UTF-8
+}

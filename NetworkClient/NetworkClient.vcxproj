@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{BA7BC249-B7BC-45DE-874D-80B0AB699A3E}</ProjectGuid>
+    <RootNamespace>NetworkClient</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="..\strandwire.config.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="..\strandwire.props" />
+  </ImportGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="client_session.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="client_session.h" />
+    <ClInclude Include="client_log.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LogLib\LogLib.vcxproj">
+      <Project>{514954BF-E047-4AD8-984C-0732ADA25F86}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ProtoLib\ProtoLib.vcxproj">
+      <Project>{A964BDA8-1DDD-40A2-96B4-E3F0694E282D}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

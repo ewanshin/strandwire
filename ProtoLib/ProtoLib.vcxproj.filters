@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Proto Files">
+      <UniqueIdentifier>{5C2B8D61-0E4A-4F3B-9A77-2D1E6C8B4F20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Generated">
+      <UniqueIdentifier>{8E3F1A92-6B7C-4D05-B1C4-7A9D2E5F6031}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="chat.proto"><Filter>Proto Files</Filter></CustomBuild>
+    <CustomBuild Include="error_code.proto"><Filter>Proto Files</Filter></CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(NetSysGenDir)chat.pb.cc"><Filter>Generated</Filter></ClCompile>
+    <ClCompile Include="$(NetSysGenDir)error_code.pb.cc"><Filter>Generated</Filter></ClCompile>
+  </ItemGroup>
+</Project>
