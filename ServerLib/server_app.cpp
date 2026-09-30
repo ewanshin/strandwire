@@ -140,6 +140,8 @@ bool server_app::up_logger()
 {
     if (!server_log.start(settings_.log))
         return false;
+    // The config phase finished before there was a logger: report it now so the log shows every phase.
+    server_log.info("phase 'config' up");
     server_log.info("configuration: ", describe(settings_));
     return true;
 }
