@@ -28,7 +28,8 @@ const char* option_value(int argc, char* argv[], std::string_view name)
 int main(int argc, char* argv[])
 {
     console::init_utf8_output();
-    if (argc < 4) {
+    if (argc < 4)
+    {
         std::cerr << "Usage: " << argv[0] << " <host> <port> <name> [--log-level info] [--log-dir <folder>]\n";
         return 1;
     }
@@ -53,23 +54,36 @@ int main(int argc, char* argv[])
     auto work = asio::make_work_guard(io);
     auto session = std::make_shared<client_session>(io, name);
     session->start(host, port);
-    std::thread io_thread([&io] { io.run(); });
+    std::thread io_thread(
+        [&io]
+        {
+            io.run();
+        });
 
     // Every line is handed to the io thread with asio::post, so the socket is only ever touched
     // from one thread.
     std::cout << "type a message and press enter. 'quit' to exit." << std::endl;
     std::string line;
-    while (console::read_line(line)) { // UTF-8, also when typed into a CP949 console
+    while (console::read_line(line))
+    { // UTF-8, also when typed into a CP949 console
         if (line == "quit")
             break;
         if (line.empty())
             continue;
-        asio::post(io, [session, line] { session->send_chat(line); });
+        asio::post(io,
+                   [session, line]
+                   {
+                       session->send_chat(line);
+                   });
     }
 
     // Orderly exit: close the socket on the io thread, drop the work guard so io.run() returns
     // once the close has completed, then join.
-    asio::post(io, [session] { session->close(); });
+    asio::post(io,
+               [session]
+               {
+                   session->close();
+               });
     work.reset();
     io_thread.join();
     client_log.stop(); // before main() returns, while spdlog's statics are alive

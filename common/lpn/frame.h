@@ -38,8 +38,14 @@ struct frame
     std::uint64_t server_sid = 0; // meaningful only for tunnel packets
     std::vector<char> payload;
 
-    bool is_tunnel() const { return is_tunnel_packet(type); }
-    std::uint8_t tunnel_id() const { return param; } // meaningful only for tunnel packets
+    bool is_tunnel() const
+    {
+        return is_tunnel_packet(type);
+    }
+    std::uint8_t tunnel_id() const
+    {
+        return param;
+    } // meaningful only for tunnel packets
 };
 
 // type must be one of connect..shift.
@@ -85,7 +91,8 @@ inline std::vector<char> encode(const frame& f)
     p += FRAME_LEN_SIZE;
     *p++ = static_cast<char>(f.type);
     *p++ = static_cast<char>(f.param);
-    if (tunnel) {
+    if (tunnel)
+    {
         put_u64(p, f.server_sid);
         p += SERVER_SID_SIZE;
     }
@@ -105,7 +112,8 @@ inline frame decode_body(std::span<const char> body)
     f.param = static_cast<std::uint8_t>(body[1]);
 
     std::size_t offset = LPN_HEADER_SIZE;
-    if (f.is_tunnel()) {
+    if (f.is_tunnel())
+    {
         // The receiver indexes its tunnel table with this value.
         if (f.param >= TUNNEL_COUNT)
             throw protocol_error("tunnel id out of range");

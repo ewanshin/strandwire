@@ -32,7 +32,10 @@ struct sid
                (static_cast<std::uint64_t>(type) << 16) | static_cast<std::uint64_t>(id);
     }
 
-    constexpr bool is_anycast() const { return id == 0; }
+    constexpr bool is_anycast() const
+    {
+        return id == 0;
+    }
 
     std::string to_string() const
     {
@@ -46,12 +49,14 @@ struct sid
         std::uint16_t parts[4] = {};
         const char* p = text.data();
         const char* end = text.data() + text.size();
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i)
+        {
             const auto [next, ec] = std::from_chars(p, end, parts[i]);
             if (ec != std::errc{} || next == p)
                 return std::nullopt;
             p = next;
-            if (i < 3) {
+            if (i < 3)
+            {
                 if (p == end || *p != '.')
                     return std::nullopt;
                 ++p;

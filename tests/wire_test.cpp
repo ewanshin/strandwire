@@ -24,13 +24,16 @@
 #include "common/utf8.h"
 #include "tests/test_support.h"
 
-#define CHECK(cond)                                                                \
-    do {                                                                            \
-        if (!(cond)) {                                                              \
-            std::cerr << __FILE__ << ":" << __LINE__ << " CHECK failed: " #cond "\n"; \
-            std::exit(1);                                                           \
-        }                                                                           \
-    } while (0)
+#define CHECK(cond)                                                                                                    \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (!(cond))                                                                                                   \
+        {                                                                                                              \
+            std::cerr << __FILE__ << ":" << __LINE__ << " CHECK failed: " #cond "\n";                                  \
+            std::exit(1);                                                                                              \
+        }                                                                                                              \
+    }                                                                                                                  \
+    while (0)
 
 namespace
 {
@@ -52,9 +55,12 @@ std::span<const char> body_of(const std::vector<char>& packet)
 template <class F>
 bool throws_protocol_error(F&& f)
 {
-    try {
+    try
+    {
         f();
-    } catch (const lpn::protocol_error&) {
+    }
+    catch (const lpn::protocol_error&)
+    {
         return true;
     }
     return false;
@@ -119,8 +125,7 @@ void test_golden_heartbeat()
 void test_golden_connect_anycast()
 {
     // type_ = CONNECT (1), param_ = LOBBY tunnel (11 = 0x0B). sid "0.0.11.0".
-    const auto expected = bytes({0x00, 0x00, 0x00, 0x0A, 0x01, 0x0B,
-                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00});
+    const auto expected = bytes({0x00, 0x00, 0x00, 0x0A, 0x01, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00});
     const lpn::sid anycast{0, 0, 11, 0};
     const auto packet = lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::connect, anycast.value()));
     CHECK(packet == expected);
@@ -142,8 +147,8 @@ void test_golden_data()
     const std::vector<char> payload = lpn::encode_message(req);
 
     const std::uint32_t id = lpn::fnv1a32("chat.login_req");
-    std::vector<char> expected = bytes({0x00, 0x00, 0x00, 0x12,  // frame_len = 2 + 8 + 8 = 18
-                                        0x03, 0x0B,              // data, tunnel 11
+    std::vector<char> expected = bytes({0x00, 0x00, 0x00, 0x12,                           // frame_len = 2 + 8 + 8 = 18
+                                        0x03, 0x0B,                                       // data, tunnel 11
                                         0x00, 0x01, 0x00, 0x02, 0x00, 0x0B, 0x00, 0x03}); // sid 1.2.11.3
     expected.push_back(static_cast<char>(id >> 24));
     expected.push_back(static_cast<char>(id >> 16));
@@ -153,7 +158,8 @@ void test_golden_data()
         expected.push_back(static_cast<char>(v));
 
     const lpn::sid target{1, 2, 11, 3};
-    const auto packet = lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::data, target.value(), payload));
+    const auto packet =
+        lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::data, target.value(), payload));
     CHECK(packet == expected);
     CHECK(packet.size() == 22); // 18 bytes of fixed overhead + 4 bytes of protobuf
 
@@ -167,16 +173,23 @@ std::vector<char> from_hex(std::string_view text)
 {
     std::vector<char> out;
     int high = -1;
-    for (const char c : text) {
+    for (const char c : text)
+    {
         int v = -1;
-        if (c >= '0' && c <= '9') v = c - '0';
-        else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
-        else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
+        if (c >= '0' && c <= '9')
+            v = c - '0';
+        else if (c >= 'A' && c <= 'F')
+            v = c - 'A' + 10;
+        else if (c >= 'a' && c <= 'f')
+            v = c - 'a' + 10;
         if (v < 0)
             continue;
-        if (high < 0) {
+        if (high < 0)
+        {
             high = v;
-        } else {
+        }
+        else
+        {
             out.push_back(static_cast<char>(high * 16 + v));
             high = -1;
         }
@@ -190,8 +203,10 @@ void test_documented_examples()
 {
     const std::uint64_t anycast = lpn::sid{0, 0, 11, 0}.value();
     const std::uint64_t server = lpn::sid{0, 0, 11, 1}.value();
-    const auto data = [&](const google::protobuf::Message& m) {
-        return lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::data, server, lpn::encode_message(m)));
+    const auto data = [&](const google::protobuf::Message& m)
+    {
+        return lpn::encode(
+            lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::data, server, lpn::encode_message(m)));
     };
 
     CHECK(lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::connect, anycast)) ==
@@ -227,10 +242,8 @@ void test_documented_examples()
     CHECK(data(chat_noti) == from_hex("00 00 00 1B | 03 | 0B | 00 00 00 00 00 0B 00 01 | "
                                       "99 8A 08 8A | 08 01 12 05 61 6C 69 63 65 1A 02 68 69"));
 
-    CHECK(lpn::encode(lpn::make_heartbeat(lpn::heartbeat_command::noop_req)) ==
-          from_hex("00 00 00 02 | 06 | 03"));
-    CHECK(lpn::encode(lpn::make_heartbeat(lpn::heartbeat_command::noop_res)) ==
-          from_hex("00 00 00 02 | 06 | 04"));
+    CHECK(lpn::encode(lpn::make_heartbeat(lpn::heartbeat_command::noop_req)) == from_hex("00 00 00 02 | 06 | 03"));
+    CHECK(lpn::encode(lpn::make_heartbeat(lpn::heartbeat_command::noop_res)) == from_hex("00 00 00 02 | 06 | 04"));
 
     const std::uint64_t region_anycast = lpn::sid{0, 0, 13, 0}.value();
     CHECK(lpn::encode(lpn::make_tunnel(lpn::tunnel::region, lpn::packet_type::failed, region_anycast)) ==
@@ -247,18 +260,40 @@ void test_documented_examples()
 void test_decode_rejections()
 {
     // shorter than the LPN header
-    CHECK(throws_protocol_error([] { lpn::decode_body(bytes({0x06})); }));
-    CHECK(throws_protocol_error([] { lpn::decode_body(std::vector<char>{}); }));
+    CHECK(throws_protocol_error(
+        []
+        {
+            lpn::decode_body(bytes({0x06}));
+        }));
+    CHECK(throws_protocol_error(
+        []
+        {
+            lpn::decode_body(std::vector<char>{});
+        }));
     // tunnel packet without room for the 8-byte sid
-    CHECK(throws_protocol_error([] { lpn::decode_body(bytes({0x01, 0x0B, 0x00, 0x00, 0x00, 0x00})); }));
+    CHECK(throws_protocol_error(
+        []
+        {
+            lpn::decode_body(bytes({0x01, 0x0B, 0x00, 0x00, 0x00, 0x00}));
+        }));
     // tunnel id beyond the tunnel table (the receiver indexes an array with it)
-    CHECK(throws_protocol_error([] {
-        lpn::decode_body(bytes({0x03, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x01}));
-    }));
+    CHECK(throws_protocol_error(
+        []
+        {
+            lpn::decode_body(bytes({0x03, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x01}));
+        }));
     // a heartbeat is not a tunnel packet
-    CHECK(throws_protocol_error([] { lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::heartbeat, 0); }));
+    CHECK(throws_protocol_error(
+        []
+        {
+            lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::heartbeat, 0);
+        }));
     // tunnel id out of range when building
-    CHECK(throws_protocol_error([] { lpn::make_tunnel(std::uint8_t{32}, lpn::packet_type::data, 0); }));
+    CHECK(throws_protocol_error(
+        []
+        {
+            lpn::make_tunnel(std::uint8_t{32}, lpn::packet_type::data, 0);
+        }));
 
     // unknown packet types decode fine; the receiver decides to ignore them
     const lpn::frame f = lpn::decode_body(bytes({0x7F, 0x01, 0x55}));
@@ -291,14 +326,18 @@ void test_frame_io_round_trip()
     lpn::write_frame(sp.client, lpn::make_heartbeat(lpn::heartbeat_command::ping_req));
 
     bool done = false;
-    asio::co_spawn(sp.io, [&]() -> asio::awaitable<void> {
-        const lpn::frame a = co_await lpn::read_frame(sp.server);
-        CHECK(a.is_tunnel());
-        CHECK(a.param == sent.param && a.server_sid == 42 && a.payload == sent.payload);
-        const lpn::frame b = co_await lpn::read_frame(sp.server);
-        CHECK(b.type == lpn::packet_type::heartbeat && b.param == 0x01);
-        done = true;
-    }, asio::detached);
+    asio::co_spawn(
+        sp.io,
+        [&]() -> asio::awaitable<void>
+        {
+            const lpn::frame a = co_await lpn::read_frame(sp.server);
+            CHECK(a.is_tunnel());
+            CHECK(a.param == sent.param && a.server_sid == 42 && a.payload == sent.payload);
+            const lpn::frame b = co_await lpn::read_frame(sp.server);
+            CHECK(b.type == lpn::packet_type::heartbeat && b.param == 0x01);
+            done = true;
+        },
+        asio::detached);
     sp.io.run();
     CHECK(done);
 }
@@ -312,13 +351,20 @@ void test_frame_io_rejects_oversize()
     asio::write(sp.client, asio::buffer(len_buf));
 
     bool rejected = false;
-    asio::co_spawn(sp.io, [&]() -> asio::awaitable<void> {
-        try {
-            co_await lpn::read_frame(sp.server);
-        } catch (const lpn::protocol_error&) {
-            rejected = true;
-        }
-    }, asio::detached);
+    asio::co_spawn(
+        sp.io,
+        [&]() -> asio::awaitable<void>
+        {
+            try
+            {
+                co_await lpn::read_frame(sp.server);
+            }
+            catch (const lpn::protocol_error&)
+            {
+                rejected = true;
+            }
+        },
+        asio::detached);
     sp.io.run();
     CHECK(rejected);
 }
@@ -329,7 +375,10 @@ struct test_ctx
     std::string last_name;
     std::string last_text;
 
-    void on_chat(const chat::chat_req& m) { last_text = m.text(); }
+    void on_chat(const chat::chat_req& m)
+    {
+        last_text = m.text();
+    }
 };
 
 void on_login(test_ctx& ctx, const chat::login_req& m)
@@ -341,8 +390,8 @@ void on_login(test_ctx& ctx, const chat::login_req& m)
 void test_dispatcher()
 {
     lpn::message_dispatcher<test_ctx> d;
-    d.regist(&on_login);           // free function
-    d.regist(&test_ctx::on_chat);  // member function
+    d.regist(&on_login);          // free function
+    d.regist(&test_ctx::on_chat); // member function
     test_ctx ctx;
 
     chat::login_req login;
@@ -381,9 +430,12 @@ void test_dispatcher()
 
     // registering the same message twice is a programming error
     bool threw = false;
-    try {
+    try
+    {
         d.regist(&on_login);
-    } catch (const std::logic_error&) {
+    }
+    catch (const std::logic_error&)
+    {
         threw = true;
     }
     CHECK(threw);
@@ -393,15 +445,15 @@ void test_utf8_validation()
 {
     CHECK(utf8::is_valid(""));
     CHECK(utf8::is_valid("hello"));
-    CHECK(utf8::is_valid("\xED\x95\x9C\xEA\xB8\x80"));         // "한글" in UTF-8
-    CHECK(utf8::is_valid("\xF0\x9F\x98\x80"));                 // U+1F600, 4-byte sequence
-    CHECK(!utf8::is_valid("\xC7\xD1\xB1\xDB"));                // "한글" in CP949: what a Korean console sends
-    CHECK(!utf8::is_valid("\xA4\xC3\xA4\xBF"));                // CP949 jamo, as typed in the bug report
-    CHECK(!utf8::is_valid("\x80"));                            // stray continuation byte
-    CHECK(!utf8::is_valid("\xE3\x81"));                        // truncated 3-byte sequence
-    CHECK(!utf8::is_valid("\xC0\xAF"));                        // overlong encoding of '/'
-    CHECK(!utf8::is_valid("\xED\xA0\x80"));                    // UTF-16 surrogate U+D800
-    CHECK(!utf8::is_valid("\xF4\x90\x80\x80"));                // above U+10FFFF
+    CHECK(utf8::is_valid("\xED\x95\x9C\xEA\xB8\x80")); // "한글" in UTF-8
+    CHECK(utf8::is_valid("\xF0\x9F\x98\x80"));         // U+1F600, 4-byte sequence
+    CHECK(!utf8::is_valid("\xC7\xD1\xB1\xDB"));        // "한글" in CP949: what a Korean console sends
+    CHECK(!utf8::is_valid("\xA4\xC3\xA4\xBF"));        // CP949 jamo, as typed in the bug report
+    CHECK(!utf8::is_valid("\x80"));                    // stray continuation byte
+    CHECK(!utf8::is_valid("\xE3\x81"));                // truncated 3-byte sequence
+    CHECK(!utf8::is_valid("\xC0\xAF"));                // overlong encoding of '/'
+    CHECK(!utf8::is_valid("\xED\xA0\x80"));            // UTF-16 surrogate U+D800
+    CHECK(!utf8::is_valid("\xF4\x90\x80\x80"));        // above U+10FFFF
     CHECK(!utf8::is_valid("\xFF"));
 }
 

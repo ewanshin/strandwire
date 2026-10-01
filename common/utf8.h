@@ -17,32 +17,43 @@ constexpr bool is_valid(std::string_view s)
 {
     std::size_t i = 0;
     const std::size_t n = s.size();
-    while (i < n) {
+    while (i < n)
+    {
         const auto b0 = static_cast<unsigned char>(s[i]);
         std::size_t len = 0;
         std::uint32_t cp = 0;
         std::uint32_t min = 0;
-        if (b0 < 0x80) {
+        if (b0 < 0x80)
+        {
             ++i;
             continue;
-        } else if ((b0 & 0xE0) == 0xC0) {
+        }
+        else if ((b0 & 0xE0) == 0xC0)
+        {
             len = 2;
             cp = b0 & 0x1Fu;
             min = 0x80;
-        } else if ((b0 & 0xF0) == 0xE0) {
+        }
+        else if ((b0 & 0xF0) == 0xE0)
+        {
             len = 3;
             cp = b0 & 0x0Fu;
             min = 0x800;
-        } else if ((b0 & 0xF8) == 0xF0) {
+        }
+        else if ((b0 & 0xF8) == 0xF0)
+        {
             len = 4;
             cp = b0 & 0x07u;
             min = 0x10000;
-        } else {
+        }
+        else
+        {
             return false; // continuation byte or 0xF8..0xFF as a lead byte
         }
         if (i + len > n)
             return false;
-        for (std::size_t k = 1; k < len; ++k) {
+        for (std::size_t k = 1; k < len; ++k)
+        {
             const auto b = static_cast<unsigned char>(s[i + k]);
             if ((b & 0xC0) != 0x80)
                 return false;

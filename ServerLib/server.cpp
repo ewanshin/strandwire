@@ -51,17 +51,23 @@ void server::start()
 
     // Ctrl+C / SIGTERM: asio delivers the signal as a completion on the io_context, so stop()
     // runs on a worker thread like any other handler. ec is set when stop() cancels the wait.
-    signals_.async_wait([this](const std::error_code& ec, int) {
-        if (!ec)
-            stop();
-    });
+    signals_.async_wait(
+        [this](const std::error_code& ec, int)
+        {
+            if (!ec)
+                stop();
+        });
 
     asio::co_spawn(io_, accept_loop(), asio::detached);
 
     // N workers share one io_context. Per-session strands (session.h) keep each session's handlers
     // from running concurrently; the workers only decide which session runs on which thread.
     for (unsigned i = 0; i < options_.threads; ++i)
-        threads_.emplace_back([this] { io_.run(); });
+        threads_.emplace_back(
+            [this]
+            {
+                io_.run();
+            });
 
     server_log.info("server start: ip=", options_.ip, " port=", port(), " threads=", options_.threads,
                     " sid=", options_.sid.to_string(), " timeout=", options_.session_timeout.count(), "ms");
@@ -83,12 +89,14 @@ void server::stop()
 {
     if (stopping_.exchange(true))
         return;
-    asio::post(io_, [this] {
-        std::error_code ec;
-        signals_.cancel(ec);
-        acceptor_.close(ec);
-        manager_.close_all();
-    });
+    asio::post(io_,
+               [this]
+               {
+                   std::error_code ec;
+                   signals_.cancel(ec);
+                   acceptor_.close(ec);
+                   manager_.close_all();
+               });
 }
 
 // Joins the workers. Returns only after stop() drained all work; on a running server without a
@@ -113,14 +121,16 @@ std::uint16_t server::port() const
 // strand, which becomes that session's executor for its whole life.
 asio::awaitable<void> server::accept_loop()
 {
-    for (;;) {
+    for (;;)
+    {
         auto strand = asio::make_strand(io_);
         std::error_code ec;
         session::socket_type socket =
             co_await acceptor_.async_accept(strand, asio::redirect_error(asio::use_awaitable, ec));
         if (ec == asio::error::operation_aborted)
             co_return; // acceptor closed by stop(): the loop ends here
-        if (ec) {
+        if (ec)
+        {
             // Transient failure (e.g. out of descriptors): log it and keep accepting.
             server_log.error("accept failed: ", netsys::describe(ec));
             continue;

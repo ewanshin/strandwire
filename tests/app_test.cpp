@@ -14,13 +14,16 @@
 #include "ServerLib/server_log.h"
 #include "tests/test_support.h"
 
-#define CHECK(cond)                                                                \
-    do {                                                                            \
-        if (!(cond)) {                                                              \
-            std::cerr << __FILE__ << ":" << __LINE__ << " CHECK failed: " #cond "\n"; \
-            std::exit(1);                                                           \
-        }                                                                           \
-    } while (0)
+#define CHECK(cond)                                                                                                    \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (!(cond))                                                                                                   \
+        {                                                                                                              \
+            std::cerr << __FILE__ << ":" << __LINE__ << " CHECK failed: " #cond "\n";                                  \
+            std::exit(1);                                                                                              \
+        }                                                                                                              \
+    }                                                                                                                  \
+    while (0)
 
 namespace
 {
@@ -32,14 +35,21 @@ struct args
     std::vector<std::string> storage;
     std::vector<char*> ptrs;
 
-    args(std::initializer_list<const char*> list) : storage{"app_test"}
+    args(std::initializer_list<const char*> list)
+        : storage{"app_test"}
     {
         storage.insert(storage.end(), list.begin(), list.end());
         for (auto& s : storage)
             ptrs.push_back(s.data());
     }
-    int argc() const { return static_cast<int>(ptrs.size()); }
-    char* const* argv() const { return ptrs.data(); }
+    int argc() const
+    {
+        return static_cast<int>(ptrs.size());
+    }
+    char* const* argv() const
+    {
+        return ptrs.data();
+    }
 };
 
 // Writes a throw-away config file in the OS temp folder and returns its path.
@@ -54,9 +64,12 @@ std::string write_temp(const std::string& name, const std::string& text)
 template <class F>
 std::string config_error_of(F&& f)
 {
-    try {
+    try
+    {
         f();
-    } catch (const config_error& e) {
+    }
+    catch (const config_error& e)
+    {
         return e.what();
     }
     return "";
@@ -85,17 +98,18 @@ void test_defaults()
 // Identity from the command line, environment from the file, defaults for what neither gives.
 void test_command_line_and_file()
 {
-    const std::string path = write_temp("strandwire_app_test.json",
-                                        R"({"listen_config": {"port": 12345, "threads": 2}, "log_config": {"level": "debug"}})");
+    const std::string path =
+        write_temp("strandwire_app_test.json",
+                   R"({"listen_config": {"port": 12345, "threads": 2}, "log_config": {"level": "debug"}})");
     const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
     const server_config c = load_config(a.argc(), a.argv());
-    CHECK(c.server.ip == "127.0.0.1");                 // command line
-    CHECK(c.server.sid.to_string() == "0.0.11.7");     // command line
-    CHECK(c.server.port == 12345);                     // file
-    CHECK(c.server.threads == 2);                      // file
-    CHECK(c.log.log_level == nslog::level::debug);     // file
-    CHECK(c.server.session_timeout.count() == 5000);   // default: the file did not set it
-    CHECK(c.log.console);                              // default
+    CHECK(c.server.ip == "127.0.0.1");               // command line
+    CHECK(c.server.sid.to_string() == "0.0.11.7");   // command line
+    CHECK(c.server.port == 12345);                   // file
+    CHECK(c.server.threads == 2);                    // file
+    CHECK(c.log.log_level == nslog::level::debug);   // file
+    CHECK(c.server.session_timeout.count() == 5000); // default: the file did not set it
+    CHECK(c.log.console);                            // default
     CHECK(c.config_path == path);
     std::filesystem::remove(path);
 }
@@ -107,75 +121,139 @@ void test_rejections()
     {
         const std::string path = write_temp("strandwire_app_test_port.json", R"({"listen_config": {"port": 70000}})");
         const args a{"--config", path.c_str()};
-        const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
+        const std::string e = config_error_of(
+            [&]
+            {
+                load_config(a.argc(), a.argv());
+            });
         CHECK(contains(e, "port") && contains(e, "70000"));
         std::filesystem::remove(path);
     }
     {
         const std::string path = write_temp("strandwire_app_test_threads.json", R"({"listen_config": {"threads": 0}})");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "threads"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "threads"));
         std::filesystem::remove(path);
     }
     {
         const std::string path = write_temp("strandwire_app_test_level.json", R"({"log_config": {"level": "loud"}})");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "log_config.level"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "log_config.level"));
         std::filesystem::remove(path);
     }
     {
         // a number given as text that is not a number is a JSON error from protobuf
         const std::string path = write_temp("strandwire_app_test_text.json", R"({"listen_config": {"port": "abc"}})");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "config file"));
         std::filesystem::remove(path);
     }
     {
         // sid no longer belongs in the file: it is identity, given on the command line
         const std::string path = write_temp("strandwire_app_test_sid.json", R"({"sid": "0.0.11.1"})");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "config file"));
         std::filesystem::remove(path);
     }
     // the command line: identity values are validated, anything else is refused
     {
         const args a{"--sid", "1.2.3"};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "sid"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "sid"));
     }
     {
         const args a{"--ip", "999.0.0.1"};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "ip"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "ip"));
     }
     {
         const args a{"--port", "10000"}; // environment belongs in the file
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "unknown option"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "unknown option"));
     }
     {
         const args a{"--sid"};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "missing value"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "missing value"));
     }
     {
         const args a{"--config", "no_such_file.json"};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "cannot be opened"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "cannot be opened"));
     }
     {
         const std::string path = write_temp("strandwire_app_test_bad.json", R"({"port": 1,)");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
+        CHECK(contains(config_error_of(
+                           [&]
+                           {
+                               load_config(a.argc(), a.argv());
+                           }),
+                       "config file"));
         std::filesystem::remove(path);
     }
     {
         // a misspelt key is an error, not silently ignored
         const std::string path = write_temp("strandwire_app_test_typo.json", R"({"prot": 1})");
         const args a{"--config", path.c_str()};
-        CHECK(!config_error_of([&] { load_config(a.argc(), a.argv()); }).empty());
+        CHECK(!config_error_of(
+                   [&]
+                   {
+                       load_config(a.argc(), a.argv());
+                   })
+                   .empty());
         std::filesystem::remove(path);
     }
     {
         // every problem is reported at once, from both halves
-        const std::string path = write_temp("strandwire_app_test_two.json", R"({"listen_config": {"port": 70000, "threads": 0}})");
+        const std::string path =
+            write_temp("strandwire_app_test_two.json", R"({"listen_config": {"port": 70000, "threads": 0}})");
         const args a{"--sid", "1.2.3", "--config", path.c_str()};
-        const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
+        const std::string e = config_error_of(
+            [&]
+            {
+                load_config(a.argc(), a.argv());
+            });
         CHECK(contains(e, "sid") && contains(e, "port") && contains(e, "threads"));
         std::filesystem::remove(path);
     }
@@ -187,10 +265,20 @@ struct fake_component : server_component
 {
     std::string name_;
     bool ok_;
-    fake_component(std::string name, bool ok) : name_(std::move(name)), ok_(ok) {}
-    const char* name() const override { return name_.c_str(); }
-    bool init_instance() override { return ok_; }
-    void exit_instance() override {}
+    fake_component(std::string name, bool ok)
+        : name_(std::move(name)),
+          ok_(ok)
+    {}
+    const char* name() const override
+    {
+        return name_.c_str();
+    }
+    bool init_instance() override
+    {
+        return ok_;
+    }
+    void exit_instance() override
+    {}
 };
 
 // Ephemeral port, one worker, logger silent: enough to run the phases without side effects.
@@ -227,10 +315,10 @@ void test_lifecycle()
     CHECK(!app.listening());
 
     const std::vector<std::string> expected = {
-        "up:config", "up:logger", "up:connection:db", "up:connections", "up:asset:words", "up:assets", "up:listen",
-        "up:serve",
-        "down:serve", "down:listen", "down:asset:words", "down:assets", "down:connection:db", "down:connections",
-        "down:logger", "down:config",
+        "up:config",          "up:logger",        "up:connection:db", "up:connections",
+        "up:asset:words",     "up:assets",        "up:listen",        "up:serve",
+        "down:serve",         "down:listen",      "down:asset:words", "down:assets",
+        "down:connection:db", "down:connections", "down:logger",      "down:config",
     };
     CHECK(app.trace() == expected);
 
@@ -252,8 +340,8 @@ void test_failed_phase_tears_down_in_reverse()
     CHECK(!app.listening());
 
     const std::vector<std::string> expected = {
-        "up:config", "up:logger", "up:connection:db", "fail:connection:cache", "fail:connections",
-        "down:connection:db", "down:connections", "down:logger", "down:config",
+        "up:config",          "up:logger",        "up:connection:db", "fail:connection:cache", "fail:connections",
+        "down:connection:db", "down:connections", "down:logger",      "down:config",
     };
     CHECK(app.trace() == expected);
 }
@@ -272,9 +360,9 @@ void test_failed_asset_after_connections()
     CHECK(std::find(app.trace().begin(), app.trace().end(), "up:listen") == app.trace().end());
 
     const std::vector<std::string> expected = {
-        "up:config", "up:logger", "up:connection:db", "up:connections", "up:asset:words", "fail:asset:rooms",
-        "fail:assets", "down:asset:words", "down:assets", "down:connection:db", "down:connections",
-        "down:logger", "down:config",
+        "up:config",        "up:logger",   "up:connection:db", "up:connections", "up:asset:words",
+        "fail:asset:rooms", "fail:assets", "down:asset:words", "down:assets",    "down:connection:db",
+        "down:connections", "down:logger", "down:config",
     };
     CHECK(app.trace() == expected);
 }
@@ -301,8 +389,9 @@ void test_failed_logger_fails_pre_init()
 // from the file are what the server starts with.
 void test_loaded_config_reaches_the_app()
 {
-    const std::string path = write_temp("strandwire_app_test_app.json",
-                                        R"({"listen_config": {"port": 0, "threads": 1}, "log_config": {"level": "off", "console": false}})");
+    const std::string path =
+        write_temp("strandwire_app_test_app.json",
+                   R"({"listen_config": {"port": 0, "threads": 1}, "log_config": {"level": "off", "console": false}})");
     const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
     server_config c = load_config(a.argc(), a.argv());
     std::filesystem::remove(path);

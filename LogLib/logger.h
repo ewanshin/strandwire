@@ -76,16 +76,46 @@ public:
     // can touch spdlog statics that were already destroyed.
     void stop();
 
-    bool enabled(level lv) const noexcept { return static_cast<int>(lv) >= threshold_.load(std::memory_order_relaxed); }
+    bool enabled(level lv) const noexcept
+    {
+        return static_cast<int>(lv) >= threshold_.load(std::memory_order_relaxed);
+    }
     // True between start() and stop(). Lets callers fall back to the console outside that window.
-    bool running() const noexcept { return async_logger_ != nullptr; }
+    bool running() const noexcept
+    {
+        return async_logger_ != nullptr;
+    }
 
-    template <class... Args> void trace(const Args&... args) { log(level::trace, args...); }
-    template <class... Args> void debug(const Args&... args) { log(level::debug, args...); }
-    template <class... Args> void info(const Args&... args) { log(level::info, args...); }
-    template <class... Args> void warn(const Args&... args) { log(level::warn, args...); }
-    template <class... Args> void error(const Args&... args) { log(level::error, args...); }
-    template <class... Args> void fatal(const Args&... args) { log(level::fatal, args...); }
+    template <class... Args>
+    void trace(const Args&... args)
+    {
+        log(level::trace, args...);
+    }
+    template <class... Args>
+    void debug(const Args&... args)
+    {
+        log(level::debug, args...);
+    }
+    template <class... Args>
+    void info(const Args&... args)
+    {
+        log(level::info, args...);
+    }
+    template <class... Args>
+    void warn(const Args&... args)
+    {
+        log(level::warn, args...);
+    }
+    template <class... Args>
+    void error(const Args&... args)
+    {
+        log(level::error, args...);
+    }
+    template <class... Args>
+    void fatal(const Args&... args)
+    {
+        log(level::fatal, args...);
+    }
 
 private:
     template <class... Args>

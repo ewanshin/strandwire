@@ -19,8 +19,14 @@ public:
     dummy_session(asio::io_context& io, int index);
 
     void start(asio::ip::tcp::endpoint target);
-    bool logged_in() const noexcept { return logged_in_; }
-    std::size_t chats_received() const noexcept { return chats_received_; }
+    bool logged_in() const noexcept
+    {
+        return logged_in_;
+    }
+    std::size_t chats_received() const noexcept
+    {
+        return chats_received_;
+    }
 
 private:
     asio::awaitable<void> run(asio::ip::tcp::endpoint target);

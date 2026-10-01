@@ -28,11 +28,16 @@ constexpr auto LOBBY = static_cast<std::uint8_t>(lpn::tunnel::lobby);
 void on_login_req(session& s, const chat::login_req& req)
 {
     chat::login_res res;
-    if (s.logged_in()) {
+    if (s.logged_in())
+    {
         res.set_error_code_(nserror::ALREADY_LOGGED_IN);
-    } else if (req.name().empty() || req.name().size() > MAX_NAME_BYTES || !utf8::is_valid(req.name())) {
+    }
+    else if (req.name().empty() || req.name().size() > MAX_NAME_BYTES || !utf8::is_valid(req.name()))
+    {
         res.set_error_code_(nserror::INVALID_NAME);
-    } else {
+    }
+    else
+    {
         const std::int32_t pid = s.manager().next_player_id();
         s.set_player(pid, req.name());
         res.set_error_code_(nserror::SUCCESS);
@@ -48,14 +53,16 @@ void on_login_req(session& s, const chat::login_req& req)
 void on_chat_req(session& s, const chat::chat_req& req)
 {
     chat::chat_res res;
-    if (!s.logged_in()) {
+    if (!s.logged_in())
+    {
         res.set_error_code_(nserror::NOT_LOGGED_IN);
         s.send_message(lpn::tunnel::lobby, res);
         return;
     }
     // Never broadcast bytes that are not UTF-8: every receiver's protobuf would complain, and
     // non-C++ clients could fail to decode the string at all.
-    if (!utf8::is_valid(req.text())) {
+    if (!utf8::is_valid(req.text()))
+    {
         res.set_error_code_(nserror::INVALID_TEXT);
         s.send_message(lpn::tunnel::lobby, res);
         return;

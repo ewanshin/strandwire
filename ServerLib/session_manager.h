@@ -27,13 +27,19 @@ public:
 
     // Id counters. Session ids number every connection; player ids are issued at login only.
     // Atomics because sessions call these from their strands, i.e. from any worker thread.
-    std::uint32_t next_session_id() { return next_session_id_++; }
-    std::int32_t next_player_id() { return next_player_id_++; }
+    std::uint32_t next_session_id()
+    {
+        return next_session_id_++;
+    }
+    std::int32_t next_player_id()
+    {
+        return next_player_id_++;
+    }
 
 private:
     std::vector<std::shared_ptr<session>> snapshot() const;
 
-    mutable std::mutex mutex_; // guards sessions_ only
+    mutable std::mutex mutex_;                                             // guards sessions_ only
     std::unordered_map<std::uint32_t, std::shared_ptr<session>> sessions_; // one strong reference per live session
     std::atomic<std::uint32_t> next_session_id_{1};
     std::atomic<std::int32_t> next_player_id_{1};

@@ -25,14 +25,22 @@ namespace
 
 spdlog::level::level_enum to_spdlog(level lv)
 {
-    switch (lv) {
-    case level::trace: return spdlog::level::trace;
-    case level::debug: return spdlog::level::debug;
-    case level::info: return spdlog::level::info;
-    case level::warn: return spdlog::level::warn;
-    case level::error: return spdlog::level::err;
-    case level::fatal: return spdlog::level::critical;
-    case level::off: return spdlog::level::off;
+    switch (lv)
+    {
+    case level::trace:
+        return spdlog::level::trace;
+    case level::debug:
+        return spdlog::level::debug;
+    case level::info:
+        return spdlog::level::info;
+    case level::warn:
+        return spdlog::level::warn;
+    case level::error:
+        return spdlog::level::err;
+    case level::fatal:
+        return spdlog::level::critical;
+    case level::off:
+        return spdlog::level::off;
     }
     return spdlog::level::info;
 }
@@ -41,26 +49,41 @@ spdlog::level::level_enum to_spdlog(level lv)
 
 level parse_level(const std::string& text, level fallback)
 {
-    if (text == "trace") return level::trace;
-    if (text == "debug") return level::debug;
-    if (text == "info") return level::info;
-    if (text == "warn") return level::warn;
-    if (text == "error") return level::error;
-    if (text == "fatal") return level::fatal;
-    if (text == "off") return level::off;
+    if (text == "trace")
+        return level::trace;
+    if (text == "debug")
+        return level::debug;
+    if (text == "info")
+        return level::info;
+    if (text == "warn")
+        return level::warn;
+    if (text == "error")
+        return level::error;
+    if (text == "fatal")
+        return level::fatal;
+    if (text == "off")
+        return level::off;
     return fallback;
 }
 
 const char* to_string(level lv)
 {
-    switch (lv) {
-    case level::trace: return "trace";
-    case level::debug: return "debug";
-    case level::info: return "info";
-    case level::warn: return "warn";
-    case level::error: return "error";
-    case level::fatal: return "fatal";
-    case level::off: return "off";
+    switch (lv)
+    {
+    case level::trace:
+        return "trace";
+    case level::debug:
+        return "debug";
+    case level::info:
+        return "info";
+    case level::warn:
+        return "warn";
+    case level::error:
+        return "error";
+    case level::fatal:
+        return "fatal";
+    case level::off:
+        return "off";
     }
     return "?";
 }
@@ -82,17 +105,21 @@ bool logger::start(const configuration& conf)
     stop();
 
     std::vector<spdlog::sink_ptr> sinks;
-    try {
+    try
+    {
         if (conf.console)
             sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 
-        if (!conf.folder_name.empty()) {
+        if (!conf.folder_name.empty())
+        {
             std::filesystem::create_directories(conf.folder_name);
             const std::string file_name = conf.folder_name + "/" + conf.module_name + ".log";
             // rotate at 00:00, keep every file
             sinks.push_back(std::make_shared<spdlog::sinks::daily_file_sink_mt>(file_name, 0, 0, false, 0));
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::fprintf(stderr, "[nslog] cannot start logger '%s': %s\n", conf.module_name.c_str(), e.what());
         return false;
     }
@@ -110,9 +137,11 @@ bool logger::start(const configuration& conf)
 
     // spdlog's default error handler locks a function-local static mutex, which may already be
     // destroyed during static destruction. Use a handler without shared state.
-    async_logger_->set_error_handler([](const std::string& msg) {
-        std::fprintf(stderr, "[spdlog err] %s\n", msg.c_str());
-    });
+    async_logger_->set_error_handler(
+        [](const std::string& msg)
+        {
+            std::fprintf(stderr, "[spdlog err] %s\n", msg.c_str());
+        });
 
     threshold_.store(static_cast<int>(conf.log_level), std::memory_order_relaxed);
     return true;

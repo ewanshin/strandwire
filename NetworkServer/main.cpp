@@ -30,9 +30,12 @@ int main(int argc, char* argv[])
 
     // defaults <- --config file <- command line, validated. Every problem is reported at once.
     server_config config;
-    try {
+    try
+    {
         config = load_config(argc, argv);
-    } catch (const config_error& e) {
+    }
+    catch (const config_error& e)
+    {
         std::cerr << e.what() << '\n' << SERVER_USAGE;
         std::cerr << "[NetworkServer] invalid configuration, exit code " << EXIT_CONFIG << std::endl;
         return EXIT_CONFIG;
@@ -40,18 +43,21 @@ int main(int argc, char* argv[])
 
     server_app app;
 
-    if (!app.pre_init_instance(std::move(config))) {
+    if (!app.pre_init_instance(std::move(config)))
+    {
         std::cerr << "[NetworkServer] pre_init_instance failed: the logger did not start, exit code " << EXIT_CONFIG
                   << std::endl;
         return EXIT_CONFIG;
     }
-    if (!app.init_instance()) {
+    if (!app.init_instance())
+    {
         std::cerr << "[NetworkServer] init_instance failed: a connection, an asset or the listen socket did not "
                      "come up, exit code "
                   << EXIT_INIT << std::endl;
         return EXIT_INIT;
     }
-    if (!app.start()) {
+    if (!app.start())
+    {
         std::cerr << "[NetworkServer] start failed: could not start serving, exit code " << EXIT_START << std::endl;
         return EXIT_START;
     }
@@ -59,10 +65,12 @@ int main(int argc, char* argv[])
     {
         // ESC on the console stops the server cleanly, exactly like Ctrl+C / SIGTERM.
         // Inactive when stdin is not an interactive console.
-        console::key_watcher esc([&app] {
-            server_log.info("ESC pressed: stopping");
-            app.stop();
-        });
+        console::key_watcher esc(
+            [&app]
+            {
+                server_log.info("ESC pressed: stopping");
+                app.stop();
+            });
         if (esc.active())
             server_log.info("press ESC or Ctrl+C to stop");
         app.wait();

@@ -67,7 +67,8 @@ inline void init_utf8_output()
 {
 #ifdef _WIN32
     const UINT current = GetConsoleOutputCP();
-    if (current != 0 && current != CP_UTF8) {
+    if (current != 0 && current != CP_UTF8)
+    {
         detail::saved_output_cp() = current;
         if (SetConsoleOutputCP(CP_UTF8))
             std::atexit(detail::restore_output_cp);
@@ -106,12 +107,15 @@ inline bool read_line(std::string& out)
 #ifdef _WIN32
     const HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode = 0;
-    if (h != nullptr && h != INVALID_HANDLE_VALUE && GetConsoleMode(h, &mode)) {
+    if (h != nullptr && h != INVALID_HANDLE_VALUE && GetConsoleMode(h, &mode))
+    {
         std::wstring line;
         wchar_t buf[512];
-        for (;;) {
+        for (;;)
+        {
             DWORD read = 0;
-            if (!ReadConsoleW(h, buf, static_cast<DWORD>(std::size(buf)), &read, nullptr) || read == 0) {
+            if (!ReadConsoleW(h, buf, static_cast<DWORD>(std::size(buf)), &read, nullptr) || read == 0)
+            {
                 if (line.empty())
                     return false;
                 break;
@@ -144,12 +148,17 @@ inline bool read_line(std::string& out)
 class key_watcher
 {
 public:
-    explicit key_watcher(std::function<void()> on_escape) : on_escape_(std::move(on_escape))
+    explicit key_watcher(std::function<void()> on_escape)
+        : on_escape_(std::move(on_escape))
     {
         if (!prepare())
             return;
         active_ = true;
-        thread_ = std::thread([this] { poll_loop(); });
+        thread_ = std::thread(
+            [this]
+            {
+                poll_loop();
+            });
     }
 
     ~key_watcher()
@@ -163,15 +172,20 @@ public:
     key_watcher(const key_watcher&) = delete;
     key_watcher& operator=(const key_watcher&) = delete;
 
-    bool active() const noexcept { return active_; }
+    bool active() const noexcept
+    {
+        return active_;
+    }
 
 private:
     static constexpr int ESC = 0x1B;
 
     void poll_loop()
     {
-        while (!stop_.load()) {
-            if (escape_pressed()) {
+        while (!stop_.load())
+        {
+            if (escape_pressed())
+            {
                 on_escape_();
                 return;
             }
@@ -186,17 +200,20 @@ private:
         return h != nullptr && h != INVALID_HANDLE_VALUE && GetConsoleMode(h, &mode) != 0;
     }
 
-    void restore() {}
+    void restore()
+    {}
 
     // Polls every 50 ms. _getch() does not echo and does not wait for Enter.
     bool escape_pressed()
     {
-        if (!_kbhit()) {
+        if (!_kbhit())
+        {
             Sleep(50);
             return false;
         }
         const int c = _getch();
-        if (c == 0 || c == 0xE0) { // function / arrow key: a second code follows
+        if (c == 0 || c == 0xE0)
+        { // function / arrow key: a second code follows
             (void)_getch();
             return false;
         }
@@ -231,7 +248,8 @@ private:
         char c = 0;
         if (::read(STDIN_FILENO, &c, 1) != 1 || c != ESC)
             return false;
-        if (::poll(&pfd, 1, 20) > 0) { // escape sequence: swallow it
+        if (::poll(&pfd, 1, 20) > 0)
+        { // escape sequence: swallow it
             char rest[8];
             (void)::read(STDIN_FILENO, rest, sizeof(rest));
             return false;

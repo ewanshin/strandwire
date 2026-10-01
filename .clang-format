@@ -1,0 +1,65 @@
+# Formatting rules for the C++ sources. Run clang-format (ships with Visual Studio under
+# VC\Tools\Llvm\x64\bin) on a file after editing it. Decided 2026-10-02: every opening brace goes
+# on its own line (Allman): functions, lambdas, control statements, try/catch, classes, namespaces.
+# The same rule for every function, so no one-line function bodies either.
+---
+Language: Cpp
+Standard: c++20
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+AccessModifierOffset: -4
+NamespaceIndentation: None
+IndentCaseLabels: false
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: true
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+SpaceAfterTemplateKeyword: true
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: None
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: true
+BinPackParameters: true
+AlignAfterOpenBracket: Align
+AlignTrailingComments: true
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: Never
+ConstructorInitializerIndentWidth: 4
+AllowShortCaseLabelsOnASingleLine: false
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+IncludeBlocks: Preserve
+SortIncludes: false
+ReflowComments: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+SpacesBeforeTrailingComments: 1

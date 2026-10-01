@@ -69,14 +69,29 @@ public:
     void wait();          // blocks until the server has stopped
     void exit_instance(); // reverse teardown of every phase that came up; idempotent
 
-    bool listening() const { return server_ != nullptr; } // listen phase up: the port is held
-    bool serving() const { return is_up(phase_id::serve); } // serve phase up: packets are handled
-    std::uint16_t port() const { return server_ ? server_->port() : 0; }
-    const server_config& config() const { return config_; } // valid after pre_init_instance()
+    bool listening() const
+    {
+        return server_ != nullptr;
+    } // listen phase up: the port is held
+    bool serving() const
+    {
+        return is_up(phase_id::serve);
+    } // serve phase up: packets are handled
+    std::uint16_t port() const
+    {
+        return server_ ? server_->port() : 0;
+    }
+    const server_config& config() const
+    {
+        return config_;
+    } // valid after pre_init_instance()
 
     // "up:config", "up:logger", "up:connection:<name>", "fail:asset:<name>", "down:listen", ...
     // in the order they happened. For tests and diagnostics.
-    const std::vector<std::string>& trace() const { return trace_; }
+    const std::vector<std::string>& trace() const
+    {
+        return trace_;
+    }
 
 private:
     // One row of the phase table (see server_app.cpp): a name for the log and trace, the step
@@ -99,16 +114,28 @@ private:
     };
     static constexpr std::size_t PHASE_COUNT = 6;
     static const phase PHASES[]; // one row per phase_id, in that order
-    static constexpr std::size_t index(phase_id p) { return static_cast<std::size_t>(p); }
+    static constexpr std::size_t index(phase_id p)
+    {
+        return static_cast<std::size_t>(p);
+    }
 
     // Brings up every phase from the first one not yet up through `last` (inclusive), in order;
     // on failure tears everything down and returns false.
     bool run_phases_through(phase_id last);
     // Whether every phase up to and including p is up.
-    bool is_up(phase_id p) const { return phases_up_ > index(p); }
+    bool is_up(phase_id p) const
+    {
+        return phases_up_ > index(p);
+    }
     // The earlier lifecycle method succeeded, so the next one may run.
-    bool is_pre_init_success() const { return is_up(phase_id::logger); }
-    bool is_init_success() const { return is_up(phase_id::listen); }
+    bool is_pre_init_success() const
+    {
+        return is_up(phase_id::logger);
+    }
+    bool is_init_success() const
+    {
+        return is_up(phase_id::listen);
+    }
     static const char* step_name(std::size_t phase); // "pre_init_instance", "init_instance" or "start"
 
     bool up_config();
@@ -117,17 +144,16 @@ private:
     bool up_assets();
     bool up_listen();
     bool up_serve();
-    void down_nothing() {}
+    void down_nothing()
+    {}
     void down_logger();
     void down_connections();
     void down_assets();
     void down_listen();
     void down_serve();
 
-    bool run_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
-                        const char* kind);
-    void stop_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
-                         const char* kind);
+    bool run_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started, const char* kind);
+    void stop_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started, const char* kind);
 
     server_config config_;
     bool have_config_ = false; // pre_init_instance() succeeded

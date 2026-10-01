@@ -35,9 +35,12 @@ long long ms_since(std::chrono::steady_clock::time_point t0)
 template <class... Args>
 void note(const Args&... args)
 {
-    if (server_log.running()) {
+    if (server_log.running())
+    {
         server_log.info(args...);
-    } else {
+    }
+    else
+    {
         std::cout << "[NetworkServer] ";
         (std::cout << ... << args) << std::endl;
     }
@@ -46,9 +49,12 @@ void note(const Args&... args)
 template <class... Args>
 void note_error(const Args&... args)
 {
-    if (server_log.running()) {
+    if (server_log.running())
+    {
         server_log.fatal(args...);
-    } else {
+    }
+    else
+    {
         std::cerr << "[NetworkServer] ";
         (std::cerr << ... << args) << std::endl;
     }
@@ -128,10 +134,12 @@ bool server_app::start()
 // The phase itself has already logged the detailed reason.
 bool server_app::run_phases_through(phase_id last)
 {
-    for (std::size_t i = phases_up_; i <= index(last); ++i) {
+    for (std::size_t i = phases_up_; i <= index(last); ++i)
+    {
         const auto t0 = std::chrono::steady_clock::now();
         const bool ok = (this->*PHASES[i].up)();
-        if (!ok) {
+        if (!ok)
+        {
             trace_.push_back(std::string("fail:") + PHASES[i].name);
             note_error(step_name(i), " failed at phase '", PHASES[i].name, "' after ", ms_since(t0),
                        "ms: start-up aborted, tearing down");
@@ -171,7 +179,8 @@ void server_app::wait()
 // this twice (or after a failed step) is harmless.
 void server_app::exit_instance()
 {
-    while (phases_up_ > 0) {
+    while (phases_up_ > 0)
+    {
         --phases_up_;
         const auto t0 = std::chrono::steady_clock::now();
         (this->*PHASES[phases_up_].down)();
@@ -197,13 +206,13 @@ bool server_app::up_config()
 // message, including the final configuration, goes through server_log.
 bool server_app::up_logger()
 {
-    if (!server_log.start(config_.log)) {
+    if (!server_log.start(config_.log))
+    {
         note_error("cannot start the logger (see the message above)");
         return false;
     }
     server_log.info("logger started: level=", nslog::to_string(config_.log.log_level),
-                    config_.log.folder_name.empty() ? ", console only" : ", file dir=",
-                    config_.log.folder_name);
+                    config_.log.folder_name.empty() ? ", console only" : ", file dir=", config_.log.folder_name);
     return true;
 }
 
@@ -244,11 +253,14 @@ void server_app::down_assets()
 // connection is accepted and no byte is read: that is phase 6.
 bool server_app::up_listen()
 {
-    try {
+    try
+    {
         server_ = std::make_unique<server>(config_.server);
         server_->init_instance();
         return true;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         server_log.fatal("cannot listen: ", e.what());
         server_.reset();
         return false;
@@ -271,10 +283,13 @@ void server_app::down_listen()
 // threads start here; the connections queued since phase 5 are accepted now.
 bool server_app::up_serve()
 {
-    try {
+    try
+    {
         server_->start();
         return true;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         server_log.fatal("cannot start serving: ", e.what());
         return false;
     }
@@ -296,10 +311,12 @@ bool server_app::run_components(std::vector<std::unique_ptr<server_component>>& 
 {
     if (list.empty())
         server_log.info("no ", kind, "s configured");
-    for (; started < list.size(); ++started) {
+    for (; started < list.size(); ++started)
+    {
         server_component& c = *list[started];
         const auto t0 = std::chrono::steady_clock::now();
-        if (!c.init_instance()) {
+        if (!c.init_instance())
+        {
             trace_.push_back(std::string("fail:") + kind + ":" + c.name());
             server_log.error(kind, " '", c.name(), "' failed to initialise");
             return false;
@@ -315,7 +332,8 @@ bool server_app::run_components(std::vector<std::unique_ptr<server_component>>& 
 void server_app::stop_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
                                  const char* kind)
 {
-    while (started > 0) {
+    while (started > 0)
+    {
         --started;
         server_component& c = *list[started];
         c.exit_instance();

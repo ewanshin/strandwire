@@ -25,7 +25,8 @@ const char* const SERVER_USAGE =
 command_line parse_command_line(int argc, char* const argv[])
 {
     command_line cli;
-    for (int i = 1; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i)
+    {
         const std::string_view name = argv[i];
         if (i + 1 >= argc)
             throw config_error(std::string(name) + ": missing value");
@@ -88,7 +89,8 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
     std::vector<std::string> problems;
 
     // --- command line: identity -------------------------------------------------------------
-    if (!cli.ip.empty()) {
+    if (!cli.ip.empty())
+    {
         asio::error_code ec;
         asio::ip::make_address(cli.ip, ec);
         if (ec)
@@ -96,7 +98,8 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
         else
             c.server.ip = cli.ip;
     }
-    if (!cli.sid.empty()) {
+    if (!cli.sid.empty())
+    {
         const auto parsed = lpn::sid::parse(cli.sid);
         if (!parsed)
             problems.push_back("sid: expected domain.idc.type.id (e.g. 0.0.11.1), got '" + cli.sid + "'");
@@ -105,21 +108,25 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
     }
 
     // --- file, section listen_config --------------------------------------------------------
-    if (file.has_listen_config()) {
+    if (file.has_listen_config())
+    {
         const config::listen_config& l = file.listen_config();
-        if (l.has_port()) {
+        if (l.has_port())
+        {
             if (l.port() > 65535)
                 problems.push_back("listen_config.port: must be 0..65535, got " + std::to_string(l.port()));
             else
                 c.server.port = static_cast<std::uint16_t>(l.port()); // 0 = ephemeral port, used by tests
         }
-        if (l.has_threads()) {
+        if (l.has_threads())
+        {
             if (l.threads() < 1 || l.threads() > 1024)
                 problems.push_back("listen_config.threads: must be 1..1024, got " + std::to_string(l.threads()));
             else
                 c.server.threads = l.threads();
         }
-        if (l.has_session_timeout_ms()) {
+        if (l.has_session_timeout_ms())
+        {
             if (l.session_timeout_ms() < 1)
                 problems.push_back("listen_config.session_timeout_ms: must be at least 1");
             else
@@ -128,9 +135,11 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
     }
 
     // --- file, section log_config -----------------------------------------------------------
-    if (file.has_log_config()) {
+    if (file.has_log_config())
+    {
         const config::log_config& l = file.log_config();
-        if (l.has_level()) {
+        if (l.has_level())
+        {
             // parse_level() returns the fallback for unknown text, so "off" as fallback is
             // ambiguous with a real "off": tell them apart by comparing the text.
             const nslog::level lv = nslog::parse_level(l.level(), nslog::level::off);
@@ -146,7 +155,8 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
             c.log.console = l.console();
     }
 
-    if (!problems.empty()) {
+    if (!problems.empty())
+    {
         std::string msg = "invalid configuration:";
         for (const auto& p : problems)
             msg += "\n  " + p;
@@ -161,8 +171,8 @@ std::string describe(const server_config& c)
 {
     std::string text = "ip=" + c.server.ip + " port=" + std::to_string(c.server.port) +
                        " threads=" + std::to_string(c.server.threads) + " sid=" + c.server.sid.to_string() +
-                       " timeout=" + std::to_string(c.server.session_timeout.count()) + "ms log=" +
-                       std::string(nslog::to_string(c.log.log_level));
+                       " timeout=" + std::to_string(c.server.session_timeout.count()) +
+                       "ms log=" + std::string(nslog::to_string(c.log.log_level));
     if (!c.log.folder_name.empty())
         text += " log_dir=" + c.log.folder_name;
     if (!c.log.console)

@@ -51,9 +51,18 @@ public:
     void exit_instance();
 
     std::uint16_t port() const;
-    std::size_t session_count() const { return manager_.count(); }
-    session_manager& manager() { return manager_; }
-    const server_options& options() const { return options_; }
+    std::size_t session_count() const
+    {
+        return manager_.count();
+    }
+    session_manager& manager()
+    {
+        return manager_;
+    }
+    const server_options& options() const
+    {
+        return options_;
+    }
 
 private:
     asio::awaitable<void> accept_loop();

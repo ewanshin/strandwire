@@ -47,28 +47,46 @@ dummy_session::dummy_session(asio::io_context& io, int index)
 
 void dummy_session::start(asio::ip::tcp::endpoint target)
 {
-    asio::co_spawn(io_, [self = shared_from_this(), target] { return self->run(target); }, asio::detached);
+    asio::co_spawn(
+        io_,
+        [self = shared_from_this(), target]
+        {
+            return self->run(target);
+        },
+        asio::detached);
 }
 
 // Same flow as NetworkClient: connect -> heartbeat -> CONNECT(LOBBY, anycast) -> read frames.
 // All N sessions share one io_context thread, so nothing here needs synchronisation.
 asio::awaitable<void> dummy_session::run(asio::ip::tcp::endpoint target)
 {
-    try {
+    try
+    {
         co_await socket_.async_connect(target, asio::use_awaitable);
-        asio::co_spawn(io_, [self = shared_from_this()] { return self->heartbeat_loop(); }, asio::detached);
+        asio::co_spawn(
+            io_,
+            [self = shared_from_this()]
+            {
+                return self->heartbeat_loop();
+            },
+            asio::detached);
 
         const lpn::sid anycast{0, 0, LOBBY_ID, 0};
         lpn::write_frame(socket_, lpn::make_tunnel(LOBBY, lpn::packet_type::connect, anycast.value()));
 
-        for (;;) {
+        for (;;)
+        {
             const lpn::frame f = co_await lpn::read_frame(socket_);
             on_frame(f);
         }
-    } catch (const std::system_error& e) {
+    }
+    catch (const std::system_error& e)
+    {
         if (e.code() != asio::error::operation_aborted)
             client_log.error("[", name_, "] disconnected: ", netsys::describe(e.code()));
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         client_log.error("[", name_, "] error: ", e.what());
     }
     close();
@@ -78,31 +96,39 @@ asio::awaitable<void> dummy_session::run(asio::ip::tcp::endpoint target)
 // sessions the server broadcasts N*N chat_noti per second (see chats_received in the statistics).
 asio::awaitable<void> dummy_session::chat_loop()
 {
-    try {
+    try
+    {
         chat_timer_.expires_after(random_delay());
         co_await chat_timer_.async_wait(asio::use_awaitable);
-        while (socket_.is_open()) {
+        while (socket_.is_open())
+        {
             chat::chat_req req;
             req.set_text("TEST CHAT: HELLO~~ This is Player " + std::to_string(index_));
             send_message(req);
             chat_timer_.expires_after(1s);
             co_await chat_timer_.async_wait(asio::use_awaitable);
         }
-    } catch (const std::system_error&) {
+    }
+    catch (const std::system_error&)
+    {
         // timer cancelled or socket closed: stop chatting
     }
 }
 
 asio::awaitable<void> dummy_session::heartbeat_loop()
 {
-    try {
-        while (socket_.is_open()) {
+    try
+    {
+        while (socket_.is_open())
+        {
             heartbeat_timer_.expires_after(lpn::HEARTBEAT_INTERVAL);
             co_await heartbeat_timer_.async_wait(asio::use_awaitable);
             if (socket_.is_open())
                 lpn::write_frame(socket_, lpn::make_heartbeat(lpn::heartbeat_command::noop_req));
         }
-    } catch (const std::system_error&) {
+    }
+    catch (const std::system_error&)
+    {
         // timer cancelled or socket closed
     }
 }
@@ -120,8 +146,10 @@ void dummy_session::on_frame(const lpn::frame& f)
     if (!f.is_tunnel() || f.tunnel_id() != LOBBY_ID)
         return;
 
-    switch (f.type) {
-    case lpn::packet_type::connect: {
+    switch (f.type)
+    {
+    case lpn::packet_type::connect:
+    {
         lobby_sid_ = f.server_sid;
         chat::login_req req;
         req.set_name(name_);
@@ -146,14 +174,21 @@ void dummy_session::on_frame(const lpn::frame& f)
 
 void dummy_session::on_login_res(const chat::login_res& res)
 {
-    if (res.error_code_() != nserror::SUCCESS) {
+    if (res.error_code_() != nserror::SUCCESS)
+    {
         client_log.error("[", name_, "] login failed: ", res.error_code_());
         close();
         return;
     }
     logged_in_ = true;
     client_log.debug("LOGIN OK: ID[", res.player_id(), "] Name[", name_, "]"); // one per session: debug level
-    asio::co_spawn(io_, [self = shared_from_this()] { return self->chat_loop(); }, asio::detached);
+    asio::co_spawn(
+        io_,
+        [self = shared_from_this()]
+        {
+            return self->chat_loop();
+        },
+        asio::detached);
 }
 
 void dummy_session::on_chat_res(const chat::chat_res& res)

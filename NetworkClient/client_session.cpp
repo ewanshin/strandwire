@@ -21,7 +21,10 @@ constexpr auto LOBBY_ID = static_cast<std::uint8_t>(lpn::tunnel::lobby);
 // The client keeps its own msgid dispatcher for the messages the server sends on the LOBBY
 // tunnel; handlers are member functions and the msgid comes from the parameter type.
 client_session::client_session(asio::io_context& io, std::string name)
-    : io_(io), socket_(io), heartbeat_timer_(io), name_(std::move(name))
+    : io_(io),
+      socket_(io),
+      heartbeat_timer_(io),
+      name_(std::move(name))
 {
     lobby_.regist(&client_session::on_login_res);
     lobby_.regist(&client_session::on_chat_res);
@@ -32,9 +35,13 @@ client_session::client_session(asio::io_context& io, std::string name)
 // stdin thread in main() reaches the session only through asio::post (see send_chat).
 void client_session::start(std::string host, std::uint16_t port)
 {
-    asio::co_spawn(io_, [self = shared_from_this(), host = std::move(host), port] {
-        return self->run(host, port);
-    }, asio::detached);
+    asio::co_spawn(
+        io_,
+        [self = shared_from_this(), host = std::move(host), port]
+        {
+            return self->run(host, port);
+        },
+        asio::detached);
 }
 
 // One console line -> one chat_req. Called on the io_context thread via asio::post from main().
@@ -42,13 +49,15 @@ void client_session::send_chat(std::string_view text)
 {
     if (!socket_.is_open())
         return;
-    if (player_id_ == INVALID_ID) {
+    if (player_id_ == INVALID_ID)
+    {
         client_log.warn("not logged in yet");
         return;
     }
     // main() already converts console input to UTF-8 (common/console.h). This catches input
     // piped in with another encoding before protobuf and the server complain about it.
-    if (!utf8::is_valid(text)) {
+    if (!utf8::is_valid(text))
+    {
         client_log.warn("input is not valid UTF-8, not sent");
         return;
     }
@@ -61,9 +70,12 @@ void client_session::send_chat(std::string_view text)
 // simpler than a send queue and never interleaves with another write.
 void client_session::send_message(const google::protobuf::Message& m)
 {
-    try {
+    try
+    {
         lpn::write_frame(socket_, lpn::make_tunnel(LOBBY, lpn::packet_type::data, lobby_sid_, lpn::encode_message(m)));
-    } catch (const std::system_error& e) {
+    }
+    catch (const std::system_error& e)
+    {
         client_log.error("send failed: ", netsys::describe(e.code()));
         close();
     }
@@ -85,26 +97,38 @@ void client_session::close()
 // on_frame once the server's CONNECT reply tells us which sid to use.
 asio::awaitable<void> client_session::run(std::string host, std::uint16_t port)
 {
-    try {
+    try
+    {
         asio::ip::tcp::resolver resolver(io_);
         const auto endpoints = co_await resolver.async_resolve(host, std::to_string(port), asio::use_awaitable);
         co_await asio::async_connect(socket_, endpoints, asio::use_awaitable);
         socket_.set_option(asio::ip::tcp::no_delay(true));
 
-        asio::co_spawn(io_, [self = shared_from_this()] { return self->heartbeat_loop(); }, asio::detached);
+        asio::co_spawn(
+            io_,
+            [self = shared_from_this()]
+            {
+                return self->heartbeat_loop();
+            },
+            asio::detached);
 
         // Open the LOBBY tunnel. id 0 = anycast: the server answers with its real sid.
         const lpn::sid anycast{0, 0, LOBBY_ID, 0};
         lpn::write_frame(socket_, lpn::make_tunnel(LOBBY, lpn::packet_type::connect, anycast.value()));
 
-        for (;;) {
+        for (;;)
+        {
             const lpn::frame f = co_await lpn::read_frame(socket_);
             on_frame(f);
         }
-    } catch (const std::system_error& e) {
+    }
+    catch (const std::system_error& e)
+    {
         if (e.code() != asio::error::operation_aborted)
             client_log.error("disconnected: ", netsys::describe(e.code()));
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         client_log.error("error: ", e.what());
     }
     close();
@@ -114,14 +138,18 @@ asio::awaitable<void> client_session::run(std::string host, std::uint16_t port)
 // (5 s) without any packet, so one lost heartbeat is tolerated, two are not.
 asio::awaitable<void> client_session::heartbeat_loop()
 {
-    try {
-        while (socket_.is_open()) {
+    try
+    {
+        while (socket_.is_open())
+        {
             heartbeat_timer_.expires_after(lpn::HEARTBEAT_INTERVAL);
             co_await heartbeat_timer_.async_wait(asio::use_awaitable);
             if (socket_.is_open())
                 lpn::write_frame(socket_, lpn::make_heartbeat(lpn::heartbeat_command::noop_req));
         }
-    } catch (const std::system_error&) {
+    }
+    catch (const std::system_error&)
+    {
         // timer cancelled or socket closed
     }
 }
@@ -135,10 +163,12 @@ void client_session::on_frame(const lpn::frame& f)
     if (f.tunnel_id() != LOBBY_ID)
         return;
 
-    switch (f.type) {
+    switch (f.type)
+    {
     // The server accepted the tunnel and told us its real sid: from now on DATA carries it.
     // This is also the moment to log in.
-    case lpn::packet_type::connect: {
+    case lpn::packet_type::connect:
+    {
         lobby_sid_ = f.server_sid;
         client_log.info("LOBBY tunnel open [server:", lpn::sid::from_value(lobby_sid_).to_string(), "]");
         chat::login_req req;
@@ -146,7 +176,8 @@ void client_session::on_frame(const lpn::frame& f)
         send_message(req);
         break;
     }
-    case lpn::packet_type::data: {
+    case lpn::packet_type::data:
+    {
         std::uint32_t msgid = 0;
         const auto r = lobby_.dispatch(*this, f.payload, &msgid);
         if (r != lpn::dispatch_result::ok && !f.payload.empty())
@@ -173,9 +204,10 @@ void client_session::on_frame(const lpn::frame& f)
 
 void client_session::on_login_res(const chat::login_res& res)
 {
-    if (res.error_code_() != nserror::SUCCESS) {
-        client_log.error("LOGIN FAILED [", nserror::error_code_Name(static_cast<nserror::error_code>(res.error_code_())),
-                         "]");
+    if (res.error_code_() != nserror::SUCCESS)
+    {
+        client_log.error("LOGIN FAILED [",
+                         nserror::error_code_Name(static_cast<nserror::error_code>(res.error_code_())), "]");
         close();
         return;
     }

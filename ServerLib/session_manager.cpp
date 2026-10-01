@@ -45,11 +45,14 @@ std::vector<std::shared_ptr<session>> session_manager::snapshot() const
 // the strand, because the tunnel table is session state.
 void session_manager::broadcast(std::uint8_t tunnel_id, lpn::shared_buffer buf)
 {
-    for (auto& s : snapshot()) {
-        asio::dispatch(s->strand(), [s, tunnel_id, buf] {
-            if (s->tunnel_open(tunnel_id))
-                s->send(buf);
-        });
+    for (auto& s : snapshot())
+    {
+        asio::dispatch(s->strand(),
+                       [s, tunnel_id, buf]
+                       {
+                           if (s->tunnel_open(tunnel_id))
+                               s->send(buf);
+                       });
     }
 }
 
@@ -58,5 +61,9 @@ void session_manager::broadcast(std::uint8_t tunnel_id, lpn::shared_buffer buf)
 void session_manager::close_all()
 {
     for (auto& s : snapshot())
-        asio::dispatch(s->strand(), [s] { s->close("server shutdown"); });
+        asio::dispatch(s->strand(),
+                       [s]
+                       {
+                           s->close("server shutdown");
+                       });
 }

@@ -25,7 +25,8 @@ inline constexpr std::size_t MSGID_SIZE = 4;
 constexpr std::uint32_t fnv1a32(std::string_view s)
 {
     std::uint32_t hash = 2166136261u; // FNV offset basis
-    for (const char c : s) {
+    for (const char c : s)
+    {
         hash ^= static_cast<unsigned char>(c);
         hash *= 16777619u; // FNV prime
     }

@@ -33,12 +33,18 @@ enum class dispatch_result
 
 inline const char* to_string(dispatch_result r)
 {
-    switch (r) {
-    case dispatch_result::ok: return "ok";
-    case dispatch_result::too_short: return "too_short";
-    case dispatch_result::unknown_msgid: return "unknown_msgid";
-    case dispatch_result::parse_error: return "parse_error";
-    case dispatch_result::not_initialized: return "not_initialized";
+    switch (r)
+    {
+    case dispatch_result::ok:
+        return "ok";
+    case dispatch_result::too_short:
+        return "too_short";
+    case dispatch_result::unknown_msgid:
+        return "unknown_msgid";
+    case dispatch_result::parse_error:
+        return "parse_error";
+    case dispatch_result::not_initialized:
+        return "not_initialized";
     }
     return "?";
 }
@@ -51,14 +57,22 @@ public:
     template <class M>
     void regist(void (*fn)(Ctx&, const M&))
     {
-        add<M>([fn](Ctx& ctx, const google::protobuf::Message& m) { fn(ctx, static_cast<const M&>(m)); });
+        add<M>(
+            [fn](Ctx& ctx, const google::protobuf::Message& m)
+            {
+                fn(ctx, static_cast<const M&>(m));
+            });
     }
 
     // Member function: void Ctx::handler(const M&)
     template <class M>
     void regist(void (Ctx::*fn)(const M&))
     {
-        add<M>([fn](Ctx& ctx, const google::protobuf::Message& m) { (ctx.*fn)(static_cast<const M&>(m)); });
+        add<M>(
+            [fn](Ctx& ctx, const google::protobuf::Message& m)
+            {
+                (ctx.*fn)(static_cast<const M&>(m));
+            });
     }
 
     // payload = [uint32 msgid][protobuf body]. out_msgid receives the id whenever it could be read.
@@ -113,7 +127,8 @@ private:
     {
         const std::uint32_t id = msgid_of<M>();
         const auto [it, inserted] = entries_.try_emplace(id);
-        if (!inserted) {
+        if (!inserted)
+        {
             throw std::logic_error("msgid collision or duplicate registration: " + M::descriptor()->full_name() +
                                    " vs " + it->second.prototype->GetTypeName());
         }
