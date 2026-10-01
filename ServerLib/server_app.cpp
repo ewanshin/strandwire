@@ -73,24 +73,9 @@ void server_app::add_asset(std::unique_ptr<server_component> c)
     assets_.push_back(std::move(c));
 }
 
-// Phase 1 from argv. A configuration error is the one failure that cannot be logged, because
-// the logger is configured by the very settings that failed. It goes to stderr with the usage text.
-bool server_app::pre_init_instance(int argc, char* const argv[])
-{
-    note("resolving settings: ", argc - 1, " command-line arguments");
-    try {
-        settings_ = resolve_settings(argc, argv);
-    } catch (const config_error& e) {
-        note_error(e.what());
-        std::cerr << SERVER_USAGE;
-        trace_.push_back("fail:config");
-        return false;
-    }
-    have_settings_ = true;
-    return run_phases_until(PHASE_LOGGER);
-}
-
-// Phase 1 with settings the caller already resolved (tests, embedders).
+// Phase 1. The settings are already resolved and validated; the caller dealt with any error
+// before there was an app (the logger is configured by these very settings, so a bad
+// configuration cannot be logged).
 bool server_app::pre_init_instance(server_settings settings)
 {
     settings_ = std::move(settings);
@@ -175,9 +160,9 @@ void server_app::exit_instance()
 
 // ---- phases ------------------------------------------------------------------------------
 
-// Phase 1. The real work (parse, merge, validate) happened in pre_init_instance() so that its
-// error could be reported before the logger exists. This step records the phase and shows the
-// result on the console, since the logger is not up yet.
+// Phase 1. The real work (parse, merge, validate) happened in resolve_settings() before the app
+// existed. This step records the phase and shows the result on the console, since the logger is
+// not up yet.
 bool server_app::up_config()
 {
     if (!have_settings_)

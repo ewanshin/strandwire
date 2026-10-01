@@ -25,8 +25,8 @@
 namespace
 {
 
-// argv-style array from string literals, so the tests can call resolve_settings() and
-// server_app::start() exactly as main() does. argv[0] is the program name.
+// argv-style array from string literals, so the tests can call resolve_settings() exactly as
+// main() does. argv[0] is the program name.
 struct args
 {
     std::vector<std::string> storage;
@@ -249,14 +249,24 @@ void test_failed_asset_after_connections()
     CHECK(app.trace() == expected);
 }
 
-// A configuration error is reported before the logger exists: only "fail:config" is traced.
-void test_bad_command_line_fails_config_phase()
+// The settings main() resolves are what the app runs with: the --port it parsed is the port the
+// app listens on.
+void test_resolved_settings_reach_the_app()
 {
+    const args a{"--port", "0", "--threads", "1", "--log-level", "off"};
+    server_settings s = resolve_settings(a.argc(), a.argv());
+    s.log.console = false;
+
     server_app app;
-    const args a{"--port", "70000"};
-    CHECK(!app.pre_init_instance(a.argc(), a.argv()));
-    CHECK(app.trace() == std::vector<std::string>{"fail:config"});
-    CHECK(!app.listening());
+    CHECK(app.pre_init_instance(std::move(s)));
+    CHECK(app.init_instance());
+    CHECK(app.start());
+    CHECK(app.settings().server.threads == 1);
+    CHECK(app.settings().log.log_level == nslog::level::off);
+    CHECK(app.port() != 0); // 0 asked for an ephemeral port and got one
+    app.stop();
+    app.wait();
+    app.exit_instance();
 }
 
 } // namespace
@@ -270,7 +280,7 @@ int main()
     test_lifecycle();
     test_failed_phase_tears_down_in_reverse();
     test_failed_asset_after_connections();
-    test_bad_command_line_fails_config_phase();
+    test_resolved_settings_reach_the_app();
     std::cout << "app_test: OK\n";
     return 0;
 }

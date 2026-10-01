@@ -3,7 +3,7 @@
 // The server process as a sequence of phases, grouped into the project's lifecycle methods
 // (CLAUDE.md "Lifecycle method names"):
 //
-//   pre_init_instance   1. config       resolve settings (defaults <- file <- command line)
+//   pre_init_instance   1. config       take the settings the caller resolved (resolve_settings in main)
 //   init_instance       2. logger       start server_log as configured
 //                       3. connections  external environment (DB, cache, discovery): add_connection()
 //                       4. assets       data loaded before serving: add_asset()
@@ -49,10 +49,9 @@ public:
     void add_connection(std::unique_ptr<server_component> c);
     void add_asset(std::unique_ptr<server_component> c);
 
-    // Phase 1. Resolves the settings from the command line (defaults <- --config file <- options).
-    // A configuration error is printed to stderr, because the logger is not up yet, and returns false.
-    bool pre_init_instance(int argc, char* const argv[]);
-    // Phase 1 with settings the caller already holds (tests, embedders).
+    // Phase 1. Takes the settings and prints them. Resolving them from the command line is the
+    // executable's job (resolve_settings in server_config.h), so the app does not care whether
+    // they came from argv, a test or an embedder.
     bool pre_init_instance(server_settings settings);
     // Phases 2-4: logger, connections, assets. Requires pre_init_instance().
     bool init_instance();
