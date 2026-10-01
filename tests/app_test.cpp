@@ -86,7 +86,7 @@ void test_defaults()
 void test_command_line_and_file()
 {
     const std::string path = write_temp("strandwire_app_test.json",
-                                        R"({"port": 12345, "threads": 2, "log": {"level": "debug"}})");
+                                        R"({"listen_config": {"port": 12345, "threads": 2}, "log_config": {"level": "debug"}})");
     const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
     const server_config c = load_config(a.argc(), a.argv());
     CHECK(c.server.ip == "127.0.0.1");                 // command line
@@ -105,27 +105,27 @@ void test_rejections()
 {
     // the file: a bad value is named, a key the schema does not have is an error
     {
-        const std::string path = write_temp("strandwire_app_test_port.json", R"({"port": 70000})");
+        const std::string path = write_temp("strandwire_app_test_port.json", R"({"listen_config": {"port": 70000}})");
         const args a{"--config", path.c_str()};
         const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
         CHECK(contains(e, "port") && contains(e, "70000"));
         std::filesystem::remove(path);
     }
     {
-        const std::string path = write_temp("strandwire_app_test_threads.json", R"({"threads": 0})");
+        const std::string path = write_temp("strandwire_app_test_threads.json", R"({"listen_config": {"threads": 0}})");
         const args a{"--config", path.c_str()};
         CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "threads"));
         std::filesystem::remove(path);
     }
     {
-        const std::string path = write_temp("strandwire_app_test_level.json", R"({"log": {"level": "loud"}})");
+        const std::string path = write_temp("strandwire_app_test_level.json", R"({"log_config": {"level": "loud"}})");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "log.level"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "log_config.level"));
         std::filesystem::remove(path);
     }
     {
         // a number given as text that is not a number is a JSON error from protobuf
-        const std::string path = write_temp("strandwire_app_test_text.json", R"({"port": "abc"})");
+        const std::string path = write_temp("strandwire_app_test_text.json", R"({"listen_config": {"port": "abc"}})");
         const args a{"--config", path.c_str()};
         CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
         std::filesystem::remove(path);
@@ -173,7 +173,7 @@ void test_rejections()
     }
     {
         // every problem is reported at once, from both halves
-        const std::string path = write_temp("strandwire_app_test_two.json", R"({"port": 70000, "threads": 0})");
+        const std::string path = write_temp("strandwire_app_test_two.json", R"({"listen_config": {"port": 70000, "threads": 0}})");
         const args a{"--sid", "1.2.3", "--config", path.c_str()};
         const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
         CHECK(contains(e, "sid") && contains(e, "port") && contains(e, "threads"));
@@ -298,7 +298,7 @@ void test_failed_logger_fails_pre_init()
 void test_loaded_config_reaches_the_app()
 {
     const std::string path = write_temp("strandwire_app_test_app.json",
-                                        R"({"port": 0, "threads": 1, "log": {"level": "off", "console": false}})");
+                                        R"({"listen_config": {"port": 0, "threads": 1}, "log_config": {"level": "off", "console": false}})");
     const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
     server_config c = load_config(a.argc(), a.argv());
     std::filesystem::remove(path);

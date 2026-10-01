@@ -1,10 +1,12 @@
 {
-  "port": 10000,
-  "threads": 4,
-  "session_timeout_ms": 5000,
-  "log": {
+  "log_config": {
     "level": "info",
     "dir": "",
     "console": true
+  },
+  "listen_config": {
+    "port": 10000,
+    "threads": 4,
+    "session_timeout_ms": 5000
   }
 }

@@ -17,8 +17,9 @@ const char* const SERVER_USAGE =
     "usage: NetworkServer [--ip <address>] [--sid d.i.t.id] [--config <file.json>]\n"
     "  --ip      address to listen on (default 0.0.0.0 = every interface)\n"
     "  --sid     this server's identity, domain.idc.type.id (default 0.0.11.1)\n"
-    "  --config  environment file: port, threads, session_timeout_ms, log.level, log.dir,\n"
-    "            log.console (see NetworkServer/lobby_config.example.json; absent keys keep the defaults)\n";
+    "  --config  environment file with the sections log_config {level, dir, console} and\n"
+    "            listen_config {port, threads, session_timeout_ms}; absent keys keep the defaults\n"
+    "            (see NetworkServer/lobby_config.example.json)\n";
 
 // Only three options, all "--name value". Anything else is a typo, not a request for a default.
 command_line parse_command_line(int argc, char* const argv[])
@@ -103,40 +104,46 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
             c.server.sid = *parsed;
     }
 
-    // --- file: environment ------------------------------------------------------------------
-    if (file.has_port()) {
-        if (file.port() > 65535)
-            problems.push_back("port: must be 0..65535, got " + std::to_string(file.port()));
-        else
-            c.server.port = static_cast<std::uint16_t>(file.port()); // 0 = ephemeral port, used by tests
+    // --- file, section listen_config --------------------------------------------------------
+    if (file.has_listen_config()) {
+        const config::listen_config& l = file.listen_config();
+        if (l.has_port()) {
+            if (l.port() > 65535)
+                problems.push_back("listen_config.port: must be 0..65535, got " + std::to_string(l.port()));
+            else
+                c.server.port = static_cast<std::uint16_t>(l.port()); // 0 = ephemeral port, used by tests
+        }
+        if (l.has_threads()) {
+            if (l.threads() < 1 || l.threads() > 1024)
+                problems.push_back("listen_config.threads: must be 1..1024, got " + std::to_string(l.threads()));
+            else
+                c.server.threads = l.threads();
+        }
+        if (l.has_session_timeout_ms()) {
+            if (l.session_timeout_ms() < 1)
+                problems.push_back("listen_config.session_timeout_ms: must be at least 1");
+            else
+                c.server.session_timeout = std::chrono::milliseconds(l.session_timeout_ms());
+        }
     }
-    if (file.has_threads()) {
-        if (file.threads() < 1 || file.threads() > 1024)
-            problems.push_back("threads: must be 1..1024, got " + std::to_string(file.threads()));
-        else
-            c.server.threads = file.threads();
-    }
-    if (file.has_session_timeout_ms()) {
-        if (file.session_timeout_ms() < 1)
-            problems.push_back("session_timeout_ms: must be at least 1");
-        else
-            c.server.session_timeout = std::chrono::milliseconds(file.session_timeout_ms());
-    }
-    if (file.has_log()) {
-        if (file.log().has_level()) {
+
+    // --- file, section log_config -----------------------------------------------------------
+    if (file.has_log_config()) {
+        const config::log_config& l = file.log_config();
+        if (l.has_level()) {
             // parse_level() returns the fallback for unknown text, so "off" as fallback is
             // ambiguous with a real "off": tell them apart by comparing the text.
-            const nslog::level lv = nslog::parse_level(file.log().level(), nslog::level::off);
-            if (lv == nslog::level::off && file.log().level() != "off")
-                problems.push_back("log.level: expected trace|debug|info|warn|error|fatal|off, got '" +
-                                   file.log().level() + "'");
+            const nslog::level lv = nslog::parse_level(l.level(), nslog::level::off);
+            if (lv == nslog::level::off && l.level() != "off")
+                problems.push_back("log_config.level: expected trace|debug|info|warn|error|fatal|off, got '" +
+                                   l.level() + "'");
             else
                 c.log.log_level = lv;
         }
-        if (file.log().has_dir())
-            c.log.folder_name = file.log().dir(); // empty keeps the file log off
-        if (file.log().has_console())
-            c.log.console = file.log().console();
+        if (l.has_dir())
+            c.log.folder_name = l.dir(); // empty keeps the file log off
+        if (l.has_console())
+            c.log.console = l.console();
     }
 
     if (!problems.empty()) {

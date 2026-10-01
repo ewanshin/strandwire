@@ -4,7 +4,7 @@
 // file is; the file holds everything else.
 //
 //   command line   --ip <bind address>  --sid d.i.t.id  --config <file.json>
-//   file           port, threads, session_timeout_ms, log.level, log.dir, log.console
+//   file           log_config {level, dir, console}  listen_config {port, threads, session_timeout_ms}
 //
 // The two never overlap, so there is no precedence to remember. An absent option or key keeps
 // the built-in default. Each server has its own file schema, <server>_config.proto in ProtoLib;

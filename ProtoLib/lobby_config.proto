@@ -1,8 +1,10 @@
 syntax = "proto2";
 
-// Environment file schema of the LOBBY server, read from JSON with protobuf's
-// JsonStringToMessage. One <server>_config.proto per server; shared pieces (log_config) move to
-// a common file when the second server appears.
+// Environment file of the LOBBY server, read from JSON with protobuf's JsonStringToMessage.
+// One <server>_config.proto per server. The root message holds one section per concern, so the
+// JSON file reads { "log_config": {...}, "listen_config": {...} }. Sections every server shares
+// (log_config, listen_config) move to a base_config.proto and are imported here when the second
+// server appears; LOBBY-only sections are added to the root message as they come.
 // Every field is optional: an absent field keeps the built-in default. The server's identity
 // (--ip, --sid) comes from the command line, never from this file (see ServerLib/server_config.h).
 // These messages never go on the wire, so they are outside the msgid naming conventions.
@@ -14,9 +16,14 @@ message log_config {
   optional bool console = 3; // write to the console; default true
 }
 
-message lobby_config {
+message listen_config {
   optional uint32 port = 1;               // listen port, 1..65535 (0 = ephemeral, tests only)
   optional uint32 threads = 2;            // io_context worker threads, 1..1024
   optional uint32 session_timeout_ms = 3; // drop a connection after this long without any packet
-  optional log_config log = 4;
+}
+
+// The file.
+message lobby_config {
+  optional log_config log_config = 1;
+  optional listen_config listen_config = 2;
 }
