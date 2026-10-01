@@ -5,7 +5,7 @@
 //     server_log.info("[session ", id, "] closed: ", reason);
 //
 // The executable (NetworkServer, smoke_test) starts it from main() with
-// server_log.start({level, "NetworkServer", folder}) and calls server_log.shutdown_async() before
+// server_log.start({level, "NetworkServer", folder}) and calls server_log.stop() before
 // main() returns. Until it is started, everything logged is dropped.
 
 #include "LogLib/logger.h"

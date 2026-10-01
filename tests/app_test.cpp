@@ -163,8 +163,8 @@ struct fake_component : server_component
     bool ok_;
     fake_component(std::string name, bool ok) : name_(std::move(name)), ok_(ok) {}
     const char* name() const override { return name_.c_str(); }
-    bool init() override { return ok_; }
-    void shutdown() override {}
+    bool init_instance() override { return ok_; }
+    void exit_instance() override {}
 };
 
 // Ephemeral port, one worker, logger silent: enough to run the phases without side effects.
@@ -178,20 +178,23 @@ server_settings quiet_settings()
     return s;
 }
 
-// The happy path: every phase up in order, then every phase down in reverse.
+// The happy path: pre_init_instance -> init_instance -> start bring every phase up in order,
+// then exit_instance takes every phase down in reverse.
 void test_lifecycle()
 {
     server_app app;
     app.add_connection(std::make_unique<fake_component>("db", true));
     app.add_asset(std::make_unique<fake_component>("words", true));
 
-    CHECK(app.start(quiet_settings()) == 0);
+    CHECK(app.pre_init_instance(quiet_settings()));
+    CHECK(app.init_instance());
+    CHECK(app.start());
     CHECK(app.listening());
     CHECK(app.port() != 0);
 
     app.stop();
     app.wait();
-    app.shutdown();
+    app.exit_instance();
     CHECK(!app.listening());
 
     const std::vector<std::string> expected = {
@@ -201,7 +204,7 @@ void test_lifecycle()
     };
     CHECK(app.trace() == expected);
 
-    app.shutdown(); // idempotent
+    app.exit_instance(); // idempotent
     CHECK(app.trace() == expected);
 }
 
@@ -214,7 +217,8 @@ void test_failed_phase_tears_down_in_reverse()
     app.add_connection(std::make_unique<fake_component>("cache", false)); // fails
     app.add_asset(std::make_unique<fake_component>("words", true));       // never reached
 
-    CHECK(app.start(quiet_settings()) == 1);
+    CHECK(app.pre_init_instance(quiet_settings()));
+    CHECK(!app.init_instance()); // the failure tears everything down
     CHECK(!app.listening());
 
     const std::vector<std::string> expected = {
@@ -232,7 +236,8 @@ void test_failed_asset_after_connections()
     app.add_asset(std::make_unique<fake_component>("words", true));
     app.add_asset(std::make_unique<fake_component>("rooms", false));
 
-    CHECK(app.start(quiet_settings()) == 1);
+    CHECK(app.pre_init_instance(quiet_settings()));
+    CHECK(!app.init_instance()); // the failure tears everything down
     CHECK(!app.listening());
     CHECK(std::find(app.trace().begin(), app.trace().end(), "up:listen") == app.trace().end());
 
@@ -249,7 +254,7 @@ void test_bad_command_line_fails_config_phase()
 {
     server_app app;
     const args a{"--port", "70000"};
-    CHECK(app.start(a.argc(), a.argv()) == 1);
+    CHECK(!app.pre_init_instance(a.argc(), a.argv()));
     CHECK(app.trace() == std::vector<std::string>{"fail:config"});
     CHECK(!app.listening());
 }

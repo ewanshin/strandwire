@@ -400,7 +400,7 @@ int main()
     test_close_during_write();
     test_timeout();
 
-    server_log.shutdown_async();
+    server_log.stop();
     std::cout << "smoke_test: OK\n";
     return 0;
 }

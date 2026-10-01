@@ -69,7 +69,7 @@ logger::logger() = default;
 
 logger::~logger()
 {
-    // Normal flow: main() already called shutdown_async() and both pointers are empty.
+    // Normal flow: main() already called stop() and both pointers are empty.
     // Fallback: release without flushing, thread pool first so its
     // worker drains and joins before the logger goes away.
     threshold_.store(static_cast<int>(level::off), std::memory_order_relaxed);
@@ -79,7 +79,7 @@ logger::~logger()
 
 bool logger::start(const configuration& conf)
 {
-    shutdown_async();
+    stop();
 
     std::vector<spdlog::sink_ptr> sinks;
     try {
@@ -124,7 +124,7 @@ void logger::flush()
         async_logger_->flush();
 }
 
-void logger::shutdown_async()
+void logger::stop()
 {
     threshold_.store(static_cast<int>(level::off), std::memory_order_relaxed);
     if (async_logger_)
@@ -135,7 +135,7 @@ void logger::shutdown_async()
 
 void logger::write(level lv, const std::string& message)
 {
-    // start()/shutdown_async() must not run concurrently with logging: call them from main()
+    // start()/stop() must not run concurrently with logging: call them from main()
     // before worker threads start and after they have been joined.
     if (async_logger_)
         async_logger_->log(to_spdlog(lv), message);

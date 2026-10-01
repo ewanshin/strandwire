@@ -75,10 +75,10 @@ int main(int argc, char* argv[])
         io.run();
     } catch (const std::exception& e) {
         client_log.fatal(e.what());
-        client_log.shutdown_async();
+        client_log.stop();
         return 1;
     }
-    client_log.shutdown_async(); // flush the log before the statistics line; statics are still alive
+    client_log.stop(); // flush the log before the statistics line; statics are still alive
 
     // The statistics line is the program's output (scripts parse it), so it goes to stdout, not the
     // log. Exit code 0 only if every session logged in: a pass/fail signal for scripts.

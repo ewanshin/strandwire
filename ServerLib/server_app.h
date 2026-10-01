@@ -1,16 +1,19 @@
 #pragma once
 
-// The server process as a sequence of phases:
+// The server process as a sequence of phases, grouped into the project's lifecycle methods
+// (CLAUDE.md "Lifecycle method names"):
 //
-//   1. config       resolve settings (defaults <- file <- command line)
-//   2. logger       start server_log as configured
-//   3. connections  external environment (DB, cache, discovery): components added with add_connection()
-//   4. assets       data loaded before serving: components added with add_asset()
-//   5. listen       register handlers and start accepting connections
+//   pre_init_instance   1. config       resolve settings (defaults <- file <- command line)
+//   init_instance       2. logger       start server_log as configured
+//                       3. connections  external environment (DB, cache, discovery): add_connection()
+//                       4. assets       data loaded before serving: add_asset()
+//   start               5. listen       register handlers and start accepting connections
+//   stop / wait            request a stop, wait until the server has stopped
+//   exit_instance          tear down every phase that came up, in reverse
 //
-// start() runs them in order and stops at the first failure; shutdown() tears down only the phases
-// that came up, in reverse. Nothing is accepted before every phase is up. Phases 3 and 4 are empty
-// today: the component interface is the hook for later work.
+// Each step runs the phases in order and stops at the first failure; a failure tears down
+// everything that came up and returns false. Nothing is accepted before every phase is up.
+// Phases 3 and 4 are empty today: the component interface is the hook for later work.
 
 #include <chrono>
 #include <cstdint>
@@ -27,39 +30,46 @@ class server_component
 public:
     virtual ~server_component() = default;
     virtual const char* name() const = 0;
-    virtual bool init() = 0;      // false = phase failed; the reason should already be logged
-    virtual void shutdown() = 0;  // called only if init() returned true
+    virtual bool init_instance() = 0; // false = phase failed; the reason should already be logged
+    virtual void exit_instance() = 0; // called only if init_instance() returned true
 };
 
 class server_app
 {
 public:
     server_app();
-    ~server_app(); // calls shutdown()
+    ~server_app(); // calls exit_instance()
 
     server_app(const server_app&) = delete;
     server_app& operator=(const server_app&) = delete;
 
-    // Register components before start(). Initialised in registration order, shut down in reverse.
-    // A component may hold references to the ones registered before it: they are up when it starts
-    // and still up when it shuts down.
+    // Register components before init_instance(). Initialised in registration order, torn down in
+    // reverse. A component may hold references to the ones registered before it: they are up when
+    // it starts and still up when it shuts down.
     void add_connection(std::unique_ptr<server_component> c);
     void add_asset(std::unique_ptr<server_component> c);
 
-    // Runs the phases. Returns 0 when the server is listening, 1 after a failed phase (already torn
-    // down). Configuration errors are printed to stderr because the logger is not up yet.
-    int start(int argc, char* const argv[]);
-    int start(server_settings settings);
+    // Phase 1. Resolves the settings from the command line (defaults <- --config file <- options).
+    // A configuration error is printed to stderr, because the logger is not up yet, and returns false.
+    bool pre_init_instance(int argc, char* const argv[]);
+    // Phase 1 with settings the caller already holds (tests, embedders).
+    bool pre_init_instance(server_settings settings);
+    // Phases 2-4: logger, connections, assets. Requires pre_init_instance().
+    bool init_instance();
+    // Phase 5: construct the server and listen. Requires init_instance(). After this the server
+    // accepts connections and only stop()/wait()/exit_instance() remain.
+    bool start();
 
-    // Typical main(): start() -> wait() -> shutdown(). stop() is what ESC calls; Ctrl+C and
-    // SIGTERM reach server::stop() directly through its signal_set, so wait() returns for both.
-    void stop();     // request a stop from any thread; non-blocking
-    void wait();     // blocks until the server has stopped
-    void shutdown(); // reverse teardown of every phase that came up; idempotent
+    // Typical main(): pre_init_instance -> init_instance -> start -> wait -> exit_instance.
+    // stop() is what ESC calls; Ctrl+C and SIGTERM reach server::stop() directly through its
+    // signal_set, so wait() returns for both.
+    void stop();          // request a stop from any thread; non-blocking
+    void wait();          // blocks until the server has stopped
+    void exit_instance(); // reverse teardown of every phase that came up; idempotent
 
     bool listening() const { return server_ != nullptr; }
     std::uint16_t port() const { return server_ ? server_->port() : 0; }
-    const server_settings& settings() const { return settings_; } // valid after a successful config phase
+    const server_settings& settings() const { return settings_; } // valid after pre_init_instance()
 
     // "up:config", "up:logger", "up:connection:<name>", "fail:asset:<name>", "down:listen", ...
     // in the order they happened. For tests and diagnostics.
@@ -74,7 +84,14 @@ private:
         bool (server_app::*up)();
         void (server_app::*down)();
     };
-    static const phase PHASES[];
+    static const phase PHASES[]; // exactly PHASE_COUNT rows, in the order of the PHASE_* indices
+    static constexpr std::size_t PHASE_CONFIG = 0;
+    static constexpr std::size_t PHASE_LOGGER = 1;
+    static constexpr std::size_t PHASE_LISTEN = 4;
+    static constexpr std::size_t PHASE_COUNT = 5;
+
+    // Brings up PHASES[phases_up_ .. end) in order; on failure tears everything down and returns false.
+    bool run_phases_until(std::size_t end);
 
     bool up_config();
     bool up_logger();
@@ -93,10 +110,10 @@ private:
                          const char* kind);
 
     server_settings settings_;
-    bool have_settings_ = false; // config phase done (start() resolved or received settings)
+    bool have_settings_ = false; // pre_init_instance() succeeded
     std::vector<std::unique_ptr<server_component>> connections_;
     std::vector<std::unique_ptr<server_component>> assets_;
-    std::size_t connections_started_ = 0; // how many of connections_ have init()ed; unwound by down_connections
+    std::size_t connections_started_ = 0; // how many of connections_ are up; unwound by down_connections
     std::size_t assets_started_ = 0;      // same for assets_
     std::unique_ptr<server> server_;      // exists only while the listen phase is up
     std::size_t phases_up_ = 0;           // how many leading entries of PHASES are up

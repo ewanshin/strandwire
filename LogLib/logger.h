@@ -14,8 +14,8 @@
 //     that log do not need spdlog on their include path and do not pay its compile time;
 //   - the logger owns its own spdlog thread pool instead of the global registry's.
 //
-// Lifetime: call start() once from main() and shutdown_async() before main() returns. Logging
-// before start() or after shutdown_async() is silently dropped.
+// Lifetime: call start() once from main() and stop() before main() returns. Logging
+// before start() or after stop() is silently dropped.
 
 #include <atomic>
 #include <memory>
@@ -74,9 +74,11 @@ public:
     // Call from main() before it returns: flushes, then releases the async logger and its worker
     // thread while spdlog's internal statics are still alive. Doing it from a static destructor
     // can touch spdlog statics that were already destroyed.
-    void shutdown_async();
+    void stop();
 
     bool enabled(level lv) const noexcept { return static_cast<int>(lv) >= threshold_.load(std::memory_order_relaxed); }
+    // True between start() and stop(). Lets callers fall back to the console outside that window.
+    bool running() const noexcept { return async_logger_ != nullptr; }
 
     template <class... Args> void trace(const Args&... args) { log(level::trace, args...); }
     template <class... Args> void debug(const Args&... args) { log(level::debug, args...); }

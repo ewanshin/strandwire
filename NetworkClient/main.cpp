@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
     asio::post(io, [session] { session->close(); });
     work.reset();
     io_thread.join();
-    client_log.shutdown_async(); // before main() returns, while spdlog's statics are alive
+    client_log.stop(); // before main() returns, while spdlog's statics are alive
     std::cout << "finished" << std::endl;
     return 0;
 }

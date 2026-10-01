@@ -1,13 +1,14 @@
 #include "ServerLib/server_app.h"
 
-#include <cstdio>
 #include <exception>
+#include <iostream>
 
 #include "ServerLib/server_log.h"
 
-// The phase table. Order matters: start() walks it forwards, shutdown() walks it backwards.
-// Each entry pairs an "up" step with the "down" step that undoes it. Adding a phase means adding
-// one row here plus the two member functions; nothing else has to change.
+// The phase table. Order matters: the lifecycle methods walk it forwards in slices
+// (pre_init_instance = [0,1), init_instance = [1,4), start = [4,5)) and exit_instance() walks it
+// backwards. Each entry pairs an "up" step with the "down" step that undoes it. Adding a phase
+// means adding one row here, the two member functions, and adjusting the PHASE_* indices.
 const server_app::phase server_app::PHASES[] = {
     {"config", &server_app::up_config, &server_app::down_nothing},
     {"logger", &server_app::up_logger, &server_app::down_logger},
@@ -25,15 +26,41 @@ long long ms_since(std::chrono::steady_clock::time_point t0)
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
 }
 
+// The logger exists only between the logger phase's up and down. Everything the app has to say
+// before that (config) or after it (the last phases going down) goes to the console instead, so
+// the start and the end of the process are never silent. This is the one place that writes a
+// log-like line to std::cout/std::cerr; see CLAUDE.md "Logging and strings".
+template <class... Args>
+void note(const Args&... args)
+{
+    if (server_log.running()) {
+        server_log.info(args...);
+    } else {
+        std::cout << "[NetworkServer] ";
+        (std::cout << ... << args) << std::endl;
+    }
+}
+
+template <class... Args>
+void note_error(const Args&... args)
+{
+    if (server_log.running()) {
+        server_log.fatal(args...);
+    } else {
+        std::cerr << "[NetworkServer] ";
+        (std::cerr << ... << args) << std::endl;
+    }
+}
+
 } // namespace
 
 server_app::server_app() = default;
 
-// Destroying the app tears down whatever is still up, so a caller that forgets shutdown() (or
-// leaves through an exception) still stops the server and flushes the logger.
+// Destroying the app tears down whatever is still up, so a caller that forgets exit_instance()
+// (or leaves through an exception) still stops the server and flushes the logger.
 server_app::~server_app()
 {
-    shutdown();
+    exit_instance();
 }
 
 void server_app::add_connection(std::unique_ptr<server_component> c)
@@ -46,52 +73,75 @@ void server_app::add_asset(std::unique_ptr<server_component> c)
     assets_.push_back(std::move(c));
 }
 
-// Entry point for main(): turn argv into settings, then run the phases.
-// A configuration error is the one failure that cannot be logged, because the logger is
-// configured by the very settings that failed. It goes to stderr together with the usage text.
-int server_app::start(int argc, char* const argv[])
+// Phase 1 from argv. A configuration error is the one failure that cannot be logged, because
+// the logger is configured by the very settings that failed. It goes to stderr with the usage text.
+bool server_app::pre_init_instance(int argc, char* const argv[])
 {
+    note("resolving settings: ", argc - 1, " command-line arguments");
     try {
         settings_ = resolve_settings(argc, argv);
     } catch (const config_error& e) {
-        std::fprintf(stderr, "%s\n%s", e.what(), SERVER_USAGE);
+        note_error(e.what());
+        std::cerr << SERVER_USAGE;
         trace_.push_back("fail:config");
-        return 1;
+        return false;
     }
     have_settings_ = true;
-    return start(settings_);
+    return run_phases_until(PHASE_LOGGER);
 }
 
-// Entry point for tests and embedders that already hold settings.
-// Runs every phase that is not up yet. On the first failure the failed phase is unwound
-// (it may be half up: see run_components), then every earlier phase, and 1 is returned.
-int server_app::start(server_settings settings)
+// Phase 1 with settings the caller already resolved (tests, embedders).
+bool server_app::pre_init_instance(server_settings settings)
 {
     settings_ = std::move(settings);
     have_settings_ = true;
+    return run_phases_until(PHASE_LOGGER);
+}
 
-    const std::size_t count = sizeof(PHASES) / sizeof(PHASES[0]);
-    for (std::size_t i = phases_up_; i < count; ++i) {
+// Phases 2-4: logger, external connections, assets.
+bool server_app::init_instance()
+{
+    if (phases_up_ < PHASE_LOGGER)
+        return false; // pre_init_instance() did not succeed
+    return run_phases_until(PHASE_LISTEN);
+}
+
+// Phase 5: listen. Only now does the process accept connections.
+bool server_app::start()
+{
+    if (phases_up_ < PHASE_LISTEN)
+        return false; // init_instance() did not succeed
+    if (!run_phases_until(PHASE_COUNT))
+        return false;
+    server_log.info("server ready");
+    return true;
+}
+
+// Runs every phase from the first one not yet up to `end` (exclusive). On the first failure the
+// failed phase is unwound (it may be half up: see run_components), then every earlier phase, and
+// false is returned.
+bool server_app::run_phases_until(std::size_t end)
+{
+    for (std::size_t i = phases_up_; i < end; ++i) {
         const auto t0 = std::chrono::steady_clock::now();
         const bool ok = (this->*PHASES[i].up)();
         if (!ok) {
             trace_.push_back(std::string("fail:") + PHASES[i].name);
-            server_log.fatal("phase '", PHASES[i].name, "' failed after ", ms_since(t0), "ms: shutting down");
+            note_error("phase '", PHASES[i].name, "' failed after ", ms_since(t0), "ms: shutting down");
             // The failed phase may have brought up part of itself (e.g. the first of two
             // connections). Its down() knows what came up; then the earlier phases follow.
             (this->*PHASES[i].down)();
             trace_.push_back(std::string("down:") + PHASES[i].name);
-            shutdown();
-            return 1;
+            exit_instance();
+            return false;
         }
-        // Count the phase as up only after it succeeded, so shutdown() never undoes a phase
+        // Count the phase as up only after it succeeded, so exit_instance() never undoes a phase
         // that never came up.
         ++phases_up_;
         trace_.push_back(std::string("up:") + PHASES[i].name);
-        server_log.info("phase '", PHASES[i].name, "' up (", ms_since(t0), "ms)");
+        note("phase '", PHASES[i].name, "' up (", ms_since(t0), "ms)");
     }
-    server_log.info("server ready");
-    return 0;
+    return true;
 }
 
 // Asks the server to stop accepting and to close every session. Safe from any thread: server::stop()
@@ -111,47 +161,51 @@ void server_app::wait()
 }
 
 // Reverse teardown. Only phases counted in phases_up_ are undone, each exactly once, so calling
-// this twice (or after a failed start) is harmless.
-void server_app::shutdown()
+// this twice (or after a failed step) is harmless.
+void server_app::exit_instance()
 {
     while (phases_up_ > 0) {
         --phases_up_;
         const auto t0 = std::chrono::steady_clock::now();
         (this->*PHASES[phases_up_].down)();
         trace_.push_back(std::string("down:") + PHASES[phases_up_].name);
-        // After down_logger() this line is dropped silently (the logger is off); every other
-        // phase's line lands normally.
-        server_log.info("phase '", PHASES[phases_up_].name, "' down (", ms_since(t0), "ms)");
+        note("phase '", PHASES[phases_up_].name, "' down (", ms_since(t0), "ms)"); // console once the logger is down
     }
 }
 
 // ---- phases ------------------------------------------------------------------------------
 
-// Phase 1. The real work (parse, merge, validate) happened in start() so that its error could be
-// reported before the logger exists. This step only records the phase in the sequence.
+// Phase 1. The real work (parse, merge, validate) happened in pre_init_instance() so that its
+// error could be reported before the logger exists. This step records the phase and shows the
+// result on the console, since the logger is not up yet.
 bool server_app::up_config()
 {
-    return have_settings_;
+    if (!have_settings_)
+        return false;
+    note("configuration: ", describe(settings_));
+    return true;
 }
 
 // Phase 2. Start the logger with the level and folder from the settings. From here on every
 // message, including the final configuration, goes through server_log.
 bool server_app::up_logger()
 {
-    if (!server_log.start(settings_.log))
+    if (!server_log.start(settings_.log)) {
+        note_error("cannot start the logger (see the message above)");
         return false;
-    // The config phase finished before there was a logger: report it now so the log shows every phase.
-    server_log.info("phase 'config' up");
-    server_log.info("configuration: ", describe(settings_));
+    }
+    server_log.info("logger started: level=", nslog::to_string(settings_.log.log_level),
+                    settings_.log.folder_name.empty() ? ", console only" : ", file dir=",
+                    settings_.log.folder_name);
     return true;
 }
 
 // The logger is torn down last (its phase came up second), so "server stopped" is the last line.
-// shutdown_async() flushes and joins the logging thread while spdlog's statics are still alive.
+// logger::stop() flushes and joins the logging thread while spdlog's statics are still alive.
 void server_app::down_logger()
 {
-    server_log.info("server stopped");
-    server_log.shutdown_async();
+    server_log.info("server stopped: stopping the logger, further lines go to the console");
+    server_log.stop();
 }
 
 // Phases 3 and 4 are the same mechanism over two lists: bring components up in registration
@@ -177,9 +231,9 @@ void server_app::down_assets()
     stop_components(assets_, assets_started_, "asset");
 }
 
-// Phase 5, the last one: only now does the process accept connections. server's constructor
-// registers the message handlers (a msgid collision throws) and start() binds, listens and
-// launches the worker threads (a port in use throws). Either exception fails the phase.
+// Phase 5, the last one. server's constructor registers the message handlers (a msgid collision
+// throws) and start() binds, listens and launches the worker threads (a port in use throws).
+// Either exception fails the phase.
 bool server_app::up_listen()
 {
     try {
@@ -203,9 +257,9 @@ void server_app::down_listen()
     server_.reset();
 }
 
-// Brings up list[started..] one by one. `started` is the number of components whose init()
-// succeeded; it is a member (not a local) so that stop_components() knows how far to unwind
-// even when this function returns false half way through.
+// Brings up list[started..] one by one. `started` is the number of components whose
+// init_instance() succeeded; it is a member (not a local) so that stop_components() knows how far
+// to unwind even when this function returns false half way through.
 bool server_app::run_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
                                 const char* kind)
 {
@@ -214,7 +268,7 @@ bool server_app::run_components(std::vector<std::unique_ptr<server_component>>& 
     for (; started < list.size(); ++started) {
         server_component& c = *list[started];
         const auto t0 = std::chrono::steady_clock::now();
-        if (!c.init()) {
+        if (!c.init_instance()) {
             trace_.push_back(std::string("fail:") + kind + ":" + c.name());
             server_log.error(kind, " '", c.name(), "' failed to initialise");
             return false;
@@ -225,15 +279,15 @@ bool server_app::run_components(std::vector<std::unique_ptr<server_component>>& 
     return true;
 }
 
-// Shuts down exactly the components that came up, last first. A component whose init() failed
-// is never shut down: its shutdown() may assume init() succeeded.
+// Tears down exactly the components that came up, last first. A component whose init_instance()
+// failed is never torn down: its exit_instance() may assume init_instance() succeeded.
 void server_app::stop_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
                                  const char* kind)
 {
     while (started > 0) {
         --started;
         server_component& c = *list[started];
-        c.shutdown();
+        c.exit_instance();
         trace_.push_back(std::string("down:") + kind + ":" + c.name());
         server_log.info(kind, " '", c.name(), "' shut down");
     }
