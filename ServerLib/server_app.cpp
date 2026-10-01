@@ -2,13 +2,14 @@
 
 #include <exception>
 #include <iostream>
+#include <iterator>
 
 #include "ServerLib/server_log.h"
 
 // The phase table. Order matters: the lifecycle methods walk it forwards in slices
 // (pre_init_instance = [0,2), init_instance = [2,4), start = [4,5)) and exit_instance() walks it
 // backwards. Each entry pairs an "up" step with the "down" step that undoes it. Adding a phase
-// means adding one row here, the two member functions, and adjusting the PHASE_* indices.
+// means adding one row here, the two member functions, and one phase_id value at the same position.
 const server_app::phase server_app::PHASES[] = {
     {"config", &server_app::up_config, &server_app::down_nothing},
     {"logger", &server_app::up_logger, &server_app::down_logger},
@@ -57,14 +58,18 @@ void note_error(const Args&... args)
 // The lifecycle method a phase index belongs to, for the failure log line.
 const char* server_app::step_name(std::size_t phase)
 {
-    if (phase < PHASE_CONNECTIONS)
+    if (phase < index(phase_id::connections))
         return "pre_init_instance";
-    if (phase < PHASE_LISTEN)
+    if (phase < index(phase_id::listen))
         return "init_instance";
     return "start";
 }
 
-server_app::server_app() = default;
+server_app::server_app()
+{
+    // Checked here rather than at namespace scope because PHASES and phase_id are private.
+    static_assert(std::size(PHASES) == index(phase_id::count), "one PHASES row per phase_id value");
+}
 
 // Destroying the app tears down whatever is still up, so a caller that forgets exit_instance()
 // (or leaves through an exception) still stops the server and flushes the logger.
@@ -90,23 +95,23 @@ bool server_app::pre_init_instance(server_settings settings)
 {
     settings_ = std::move(settings);
     have_settings_ = true;
-    return run_phases_until(PHASE_CONNECTIONS);
+    return run_phases_until(phase_id::connections);
 }
 
 // Phases 3-4: external connections, assets.
 bool server_app::init_instance()
 {
-    if (phases_up_ < PHASE_CONNECTIONS)
+    if (phases_up_ < index(phase_id::connections))
         return false; // pre_init_instance() did not succeed
-    return run_phases_until(PHASE_LISTEN);
+    return run_phases_until(phase_id::listen);
 }
 
 // Phase 5: listen. Only now does the process accept connections.
 bool server_app::start()
 {
-    if (phases_up_ < PHASE_LISTEN)
+    if (phases_up_ < index(phase_id::listen))
         return false; // init_instance() did not succeed
-    if (!run_phases_until(PHASE_COUNT))
+    if (!run_phases_until(phase_id::count))
         return false;
     server_log.info("server ready");
     return true;
@@ -119,9 +124,9 @@ bool server_app::start()
 // Every outcome is logged while the logger is still up: each phase's "up" line, and on failure
 // one line naming the lifecycle method and the phase, before the teardown takes the logger down.
 // The phase itself has already logged the detailed reason.
-bool server_app::run_phases_until(std::size_t end)
+bool server_app::run_phases_until(phase_id end)
 {
-    for (std::size_t i = phases_up_; i < end; ++i) {
+    for (std::size_t i = phases_up_; i < index(end); ++i) {
         const auto t0 = std::chrono::steady_clock::now();
         const bool ok = (this->*PHASES[i].up)();
         if (!ok) {

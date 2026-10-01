@@ -84,15 +84,22 @@ private:
         bool (server_app::*up)();
         void (server_app::*down)();
     };
-    static const phase PHASES[]; // exactly PHASE_COUNT rows, in the order of the PHASE_* indices
-    static constexpr std::size_t PHASE_CONFIG = 0;
-    static constexpr std::size_t PHASE_LOGGER = 1;
-    static constexpr std::size_t PHASE_CONNECTIONS = 2; // first phase of init_instance()
-    static constexpr std::size_t PHASE_LISTEN = 4;      // the only phase of start()
-    static constexpr std::size_t PHASE_COUNT = 5;
+    // The phases in order. Each value is the row's index in PHASES; `count` is the number of rows.
+    enum class phase_id : std::size_t
+    {
+        config,      // pre_init_instance
+        logger,      //
+        connections, // init_instance
+        assets,      //
+        listen,      // start
+        count,
+    };
+    static const phase PHASES[]; // one row per phase_id, in that order
+    static constexpr std::size_t index(phase_id p) { return static_cast<std::size_t>(p); }
 
-    // Brings up PHASES[phases_up_ .. end) in order; on failure tears everything down and returns false.
-    bool run_phases_until(std::size_t end);
+    // Brings up every phase from the first one not yet up to `end` (exclusive), in order; on
+    // failure tears everything down and returns false.
+    bool run_phases_until(phase_id end);
     static const char* step_name(std::size_t phase); // "pre_init_instance", "init_instance" or "start"
 
     bool up_config();
