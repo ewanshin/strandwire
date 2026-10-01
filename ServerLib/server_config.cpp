@@ -40,7 +40,7 @@ unsigned parse_unsigned(std::string_view option, const char* text)
 // Reads the whole file and lets protobuf parse the JSON against the server_config schema.
 // The schema is the .proto, so a new setting is one field in server_config.proto plus its
 // validation below; no hand-written JSON code.
-config::server_config load_config_file(const std::string& path)
+config::server_config read_config_file(const std::string& path)
 {
     std::ifstream in(path, std::ios::binary);
     if (!in)
@@ -91,7 +91,7 @@ void apply_command_line(int argc, char* const argv[], config::server_config& out
 
 // The three layers, lowest first: built-in defaults (applied in the overload below), the config
 // file, the command line. Each layer is a server_config with only the fields it sets.
-server_settings resolve_settings(int argc, char* const argv[])
+server_config load_config(int argc, char* const argv[])
 {
     config::server_config from_cli;
     std::string config_path;
@@ -99,18 +99,18 @@ server_settings resolve_settings(int argc, char* const argv[])
 
     config::server_config merged;
     if (!config_path.empty())
-        merged = load_config_file(config_path);
+        merged = read_config_file(config_path);
     // proto2 MergeFrom copies only fields that are set on the source, so an option that was not
     // given leaves the file's value (or the default) alone. Nested `log` merges field by field too.
     merged.MergeFrom(from_cli);
-    return resolve_settings(merged, config_path);
+    return load_config(merged, config_path);
 }
 
 // Applies the defaults, then overrides each with the merged value if present and valid.
 // Problems are collected instead of thrown one at a time, so a bad file is fixed in one round.
-server_settings resolve_settings(const config::server_config& c, std::string config_path)
+server_config load_config(const config::server_config& c, std::string config_path)
 {
-    server_settings s;
+    server_config s;
     s.config_path = std::move(config_path);
     // Defaults not expressible in server_options' initialisers: one worker per hardware thread,
     // and the module name that appears in every log line.
@@ -170,7 +170,7 @@ server_settings resolve_settings(const config::server_config& c, std::string con
 
 // The line logged right after the logger starts, so an operator can see what the server is
 // actually running with after all three layers were merged.
-std::string describe(const server_settings& s)
+std::string describe(const server_config& s)
 {
     std::string text = "port=" + std::to_string(s.server.port) + " threads=" + std::to_string(s.server.threads) +
                        " sid=" + s.server.sid.to_string() + " timeout=" +

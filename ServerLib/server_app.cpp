@@ -89,13 +89,13 @@ void server_app::add_asset(std::unique_ptr<server_component> c)
     assets_.push_back(std::move(c));
 }
 
-// Phases 1-2: settings, then the logger. The settings are already resolved and validated; the
+// Phases 1-2: config, then the logger. The config are already resolved and validated; the
 // caller dealt with any error before there was an app (the logger is configured by these very
-// settings, so a bad configuration cannot be logged). After this every later phase can log.
-bool server_app::pre_init_instance(server_settings settings)
+// config, so a bad configuration cannot be logged). After this every later phase can log.
+bool server_app::pre_init_instance(server_config config)
 {
-    settings_ = std::move(settings);
-    have_settings_ = true;
+    config_ = std::move(config);
+    have_config_ = true;
     return run_phases_through(phase_id::logger);
 }
 
@@ -181,28 +181,28 @@ void server_app::exit_instance()
 
 // ---- phases ------------------------------------------------------------------------------
 
-// Phase 1. The real work (parse, merge, validate) happened in resolve_settings() before the app
+// Phase 1. The real work (parse, merge, validate) happened in load_config() before the app
 // existed. This step records the phase and shows the result on the console, since the logger is
 // not up yet.
 bool server_app::up_config()
 {
-    if (!have_settings_)
+    if (!have_config_)
         return false;
-    note("configuration: ", describe(settings_));
+    note("configuration: ", describe(config_));
     return true;
 }
 
-// Phase 2. Start the logger with the level and folder from the settings. From here on every
+// Phase 2. Start the logger with the level and folder from the config. From here on every
 // message, including the final configuration, goes through server_log.
 bool server_app::up_logger()
 {
-    if (!server_log.start(settings_.log)) {
+    if (!server_log.start(config_.log)) {
         note_error("cannot start the logger (see the message above)");
         return false;
     }
-    server_log.info("logger started: level=", nslog::to_string(settings_.log.log_level),
-                    settings_.log.folder_name.empty() ? ", console only" : ", file dir=",
-                    settings_.log.folder_name);
+    server_log.info("logger started: level=", nslog::to_string(config_.log.log_level),
+                    config_.log.folder_name.empty() ? ", console only" : ", file dir=",
+                    config_.log.folder_name);
     return true;
 }
 
@@ -243,7 +243,7 @@ void server_app::down_assets()
 bool server_app::up_listen()
 {
     try {
-        server_ = std::make_unique<server>(settings_.server);
+        server_ = std::make_unique<server>(config_.server);
         server_->start();
         return true;
     } catch (const std::exception& e) {

@@ -1,4 +1,4 @@
-// Tests for the server start-up structure: settings resolution (defaults <- file <- command line,
+// Tests for the server start-up structure: config loading (defaults <- file <- command line,
 // validation) and the phase sequence of server_app (order, failure teardown, lifecycle).
 
 #include <algorithm>
@@ -25,7 +25,7 @@
 namespace
 {
 
-// argv-style array from string literals, so the tests can call resolve_settings() exactly as
+// argv-style array from string literals, so the tests can call load_config() exactly as
 // main() does. argv[0] is the program name.
 struct args
 {
@@ -71,7 +71,7 @@ bool contains(const std::string& text, const std::string& part)
 void test_defaults()
 {
     const args a{};
-    const server_settings s = resolve_settings(a.argc(), a.argv());
+    const server_config s = load_config(a.argc(), a.argv());
     CHECK(s.server.port == 10000);
     CHECK(s.server.threads >= 1);
     CHECK(s.server.sid.to_string() == "0.0.11.1");
@@ -88,7 +88,7 @@ void test_precedence()
     const std::string path = write_temp("strandwire_app_test.json",
                                         R"({"port": 12345, "threads": 2, "log": {"level": "debug"}})");
     const args a{"--config", path.c_str(), "--threads", "3", "--timeout-ms", "700"};
-    const server_settings s = resolve_settings(a.argc(), a.argv());
+    const server_config s = load_config(a.argc(), a.argv());
     CHECK(s.server.port == 12345);                    // file
     CHECK(s.server.threads == 3);                     // command line beats file
     CHECK(s.log.log_level == nslog::level::debug);    // file
@@ -103,54 +103,54 @@ void test_rejections()
 {
     {
         const args a{"--port", "70000"};
-        const std::string e = config_error_of([&] { resolve_settings(a.argc(), a.argv()); });
+        const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
         CHECK(contains(e, "port") && contains(e, "70000"));
     }
     {
         const args a{"--threads", "0"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "threads"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "threads"));
     }
     {
         const args a{"--sid", "1.2.3"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "sid"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "sid"));
     }
     {
         const args a{"--log-level", "loud"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "log.level"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "log.level"));
     }
     {
         const args a{"--bogus", "1"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "unknown option"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "unknown option"));
     }
     {
         const args a{"--port"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "missing value"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "missing value"));
     }
     {
         const args a{"--port", "abc"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "expected a number"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "expected a number"));
     }
     {
         const args a{"--config", "no_such_file.json"};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "cannot be opened"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "cannot be opened"));
     }
     {
         const std::string path = write_temp("strandwire_app_test_bad.json", R"({"port": 1,)");
         const args a{"--config", path.c_str()};
-        CHECK(contains(config_error_of([&] { resolve_settings(a.argc(), a.argv()); }), "config file"));
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
         std::filesystem::remove(path);
     }
     {
         // a misspelt key is an error, not silently ignored
         const std::string path = write_temp("strandwire_app_test_typo.json", R"({"prot": 1})");
         const args a{"--config", path.c_str()};
-        CHECK(!config_error_of([&] { resolve_settings(a.argc(), a.argv()); }).empty());
+        CHECK(!config_error_of([&] { load_config(a.argc(), a.argv()); }).empty());
         std::filesystem::remove(path);
     }
     {
         // every problem is reported at once
         const args a{"--port", "70000", "--threads", "0"};
-        const std::string e = config_error_of([&] { resolve_settings(a.argc(), a.argv()); });
+        const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
         CHECK(contains(e, "port") && contains(e, "threads"));
     }
 }
@@ -168,9 +168,9 @@ struct fake_component : server_component
 };
 
 // Ephemeral port, one worker, logger silent: enough to run the phases without side effects.
-server_settings quiet_settings()
+server_config quiet_config()
 {
-    server_settings s;
+    server_config s;
     s.server.port = 0; // ephemeral
     s.server.threads = 1;
     s.log.log_level = nslog::level::off;
@@ -186,7 +186,7 @@ void test_lifecycle()
     app.add_connection(std::make_unique<fake_component>("db", true));
     app.add_asset(std::make_unique<fake_component>("words", true));
 
-    CHECK(app.pre_init_instance(quiet_settings()));
+    CHECK(app.pre_init_instance(quiet_config()));
     CHECK(app.init_instance());
     CHECK(app.start());
     CHECK(app.listening());
@@ -217,7 +217,7 @@ void test_failed_phase_tears_down_in_reverse()
     app.add_connection(std::make_unique<fake_component>("cache", false)); // fails
     app.add_asset(std::make_unique<fake_component>("words", true));       // never reached
 
-    CHECK(app.pre_init_instance(quiet_settings()));
+    CHECK(app.pre_init_instance(quiet_config()));
     CHECK(!app.init_instance()); // the failure tears everything down
     CHECK(!app.listening());
 
@@ -236,7 +236,7 @@ void test_failed_asset_after_connections()
     app.add_asset(std::make_unique<fake_component>("words", true));
     app.add_asset(std::make_unique<fake_component>("rooms", false));
 
-    CHECK(app.pre_init_instance(quiet_settings()));
+    CHECK(app.pre_init_instance(quiet_config()));
     CHECK(!app.init_instance()); // the failure tears everything down
     CHECK(!app.listening());
     CHECK(std::find(app.trace().begin(), app.trace().end(), "up:listen") == app.trace().end());
@@ -255,7 +255,7 @@ void test_failed_asset_after_connections()
 void test_failed_logger_fails_pre_init()
 {
     const std::string blocker = write_temp("strandwire_app_test_blocker", "not a folder");
-    server_settings s = quiet_settings();
+    server_config s = quiet_config();
     s.log.folder_name = blocker + "/logs";
 
     server_app app;
@@ -267,20 +267,20 @@ void test_failed_logger_fails_pre_init()
     std::filesystem::remove(blocker);
 }
 
-// The settings main() resolves are what the app runs with: the --port it parsed is the port the
+// The config main() loads are what the app runs with: the --port it parsed is the port the
 // app listens on.
-void test_resolved_settings_reach_the_app()
+void test_loaded_config_reaches_the_app()
 {
     const args a{"--port", "0", "--threads", "1", "--log-level", "off"};
-    server_settings s = resolve_settings(a.argc(), a.argv());
+    server_config s = load_config(a.argc(), a.argv());
     s.log.console = false;
 
     server_app app;
     CHECK(app.pre_init_instance(std::move(s)));
     CHECK(app.init_instance());
     CHECK(app.start());
-    CHECK(app.settings().server.threads == 1);
-    CHECK(app.settings().log.log_level == nslog::level::off);
+    CHECK(app.config().server.threads == 1);
+    CHECK(app.config().log.log_level == nslog::level::off);
     CHECK(app.port() != 0); // 0 asked for an ephemeral port and got one
     app.stop();
     app.wait();
@@ -299,7 +299,7 @@ int main()
     test_failed_phase_tears_down_in_reverse();
     test_failed_asset_after_connections();
     test_failed_logger_fails_pre_init();
-    test_resolved_settings_reach_the_app();
+    test_loaded_config_reaches_the_app();
     std::cout << "app_test: OK\n";
     return 0;
 }

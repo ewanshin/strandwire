@@ -3,7 +3,7 @@
 // The server process as a sequence of phases, grouped into the project's lifecycle methods
 // (CLAUDE.md "Lifecycle method names"):
 //
-//   pre_init_instance   1. config       take the settings the caller resolved (resolve_settings in main)
+//   pre_init_instance   1. config       take the config the caller loaded (load_config in main)
 //                       2. logger       start server_log as configured
 //   init_instance       3. connections  external environment (DB, cache, discovery): add_connection()
 //                       4. assets       data loaded before serving: add_asset()
@@ -49,11 +49,11 @@ public:
     void add_connection(std::unique_ptr<server_component> c);
     void add_asset(std::unique_ptr<server_component> c);
 
-    // Phases 1-2: what everything else needs first. Takes the settings, prints them, and starts
-    // the logger with them. Resolving the settings from the command line is the executable's job
-    // (resolve_settings in server_config.h), so the app does not care whether they came from
+    // Phases 1-2: what everything else needs first. Takes the config, prints it, and starts
+    // the logger with them. Loading the config from the command line is the executable's job
+    // (load_config in server_config.h), so the app does not care whether they came from
     // argv, a test or an embedder.
-    bool pre_init_instance(server_settings settings);
+    bool pre_init_instance(server_config config);
     // Phases 3-4: connections, assets. Requires pre_init_instance().
     bool init_instance();
     // Phase 5: construct the server and listen. Requires init_instance(). After this the server
@@ -69,7 +69,7 @@ public:
 
     bool listening() const { return server_ != nullptr; }
     std::uint16_t port() const { return server_ ? server_->port() : 0; }
-    const server_settings& settings() const { return settings_; } // valid after pre_init_instance()
+    const server_config& config() const { return config_; } // valid after pre_init_instance()
 
     // "up:config", "up:logger", "up:connection:<name>", "fail:asset:<name>", "down:listen", ...
     // in the order they happened. For tests and diagnostics.
@@ -123,8 +123,8 @@ private:
     void stop_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
                          const char* kind);
 
-    server_settings settings_;
-    bool have_settings_ = false; // pre_init_instance() succeeded
+    server_config config_;
+    bool have_config_ = false; // pre_init_instance() succeeded
     std::vector<std::unique_ptr<server_component>> connections_;
     std::vector<std::unique_ptr<server_component>> assets_;
     std::size_t connections_started_ = 0; // how many of connections_ are up; unwound by down_connections
