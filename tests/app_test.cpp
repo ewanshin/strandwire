@@ -71,64 +71,87 @@ bool contains(const std::string& text, const std::string& part)
 void test_defaults()
 {
     const args a{};
-    const server_config s = load_config(a.argc(), a.argv());
-    CHECK(s.server.port == 10000);
-    CHECK(s.server.threads >= 1);
-    CHECK(s.server.sid.to_string() == "0.0.11.1");
-    CHECK(s.server.session_timeout.count() == 5000);
-    CHECK(s.log.log_level == nslog::level::info);
-    CHECK(s.log.folder_name.empty());
-    CHECK(s.config_path.empty());
+    const server_config c = load_config(a.argc(), a.argv());
+    CHECK(c.server.ip == "0.0.0.0");
+    CHECK(c.server.port == 10000);
+    CHECK(c.server.threads >= 1);
+    CHECK(c.server.sid.to_string() == "0.0.11.1");
+    CHECK(c.server.session_timeout.count() == 5000);
+    CHECK(c.log.log_level == nslog::level::info);
+    CHECK(c.log.folder_name.empty());
+    CHECK(c.config_path.empty());
 }
 
-// defaults <- file <- command line, field by field.
-void test_precedence()
+// Identity from the command line, environment from the file, defaults for what neither gives.
+void test_command_line_and_file()
 {
-    // file sets port, threads, log level; the command line overrides threads only
     const std::string path = write_temp("strandwire_app_test.json",
                                         R"({"port": 12345, "threads": 2, "log": {"level": "debug"}})");
-    const args a{"--config", path.c_str(), "--threads", "3", "--timeout-ms", "700"};
-    const server_config s = load_config(a.argc(), a.argv());
-    CHECK(s.server.port == 12345);                    // file
-    CHECK(s.server.threads == 3);                     // command line beats file
-    CHECK(s.log.log_level == nslog::level::debug);    // file
-    CHECK(s.server.session_timeout.count() == 700);   // command line beats default
-    CHECK(s.server.sid.to_string() == "0.0.11.1");    // default untouched
-    CHECK(s.config_path == path);
+    const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
+    const server_config c = load_config(a.argc(), a.argv());
+    CHECK(c.server.ip == "127.0.0.1");                 // command line
+    CHECK(c.server.sid.to_string() == "0.0.11.7");     // command line
+    CHECK(c.server.port == 12345);                     // file
+    CHECK(c.server.threads == 2);                      // file
+    CHECK(c.log.log_level == nslog::level::debug);     // file
+    CHECK(c.server.session_timeout.count() == 5000);   // default: the file did not set it
+    CHECK(c.config_path == path);
     std::filesystem::remove(path);
 }
 
 // Every kind of bad input is refused with a message that names the offending value.
 void test_rejections()
 {
+    // the file: a bad value is named, a key the schema does not have is an error
     {
-        const args a{"--port", "70000"};
+        const std::string path = write_temp("strandwire_app_test_port.json", R"({"port": 70000})");
+        const args a{"--config", path.c_str()};
         const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
         CHECK(contains(e, "port") && contains(e, "70000"));
+        std::filesystem::remove(path);
     }
     {
-        const args a{"--threads", "0"};
+        const std::string path = write_temp("strandwire_app_test_threads.json", R"({"threads": 0})");
+        const args a{"--config", path.c_str()};
         CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "threads"));
+        std::filesystem::remove(path);
     }
+    {
+        const std::string path = write_temp("strandwire_app_test_level.json", R"({"log": {"level": "loud"}})");
+        const args a{"--config", path.c_str()};
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "log.level"));
+        std::filesystem::remove(path);
+    }
+    {
+        // a number given as text that is not a number is a JSON error from protobuf
+        const std::string path = write_temp("strandwire_app_test_text.json", R"({"port": "abc"})");
+        const args a{"--config", path.c_str()};
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
+        std::filesystem::remove(path);
+    }
+    {
+        // sid no longer belongs in the file: it is identity, given on the command line
+        const std::string path = write_temp("strandwire_app_test_sid.json", R"({"sid": "0.0.11.1"})");
+        const args a{"--config", path.c_str()};
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "config file"));
+        std::filesystem::remove(path);
+    }
+    // the command line: identity values are validated, anything else is refused
     {
         const args a{"--sid", "1.2.3"};
         CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "sid"));
     }
     {
-        const args a{"--log-level", "loud"};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "log.level"));
+        const args a{"--ip", "999.0.0.1"};
+        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "ip"));
     }
     {
-        const args a{"--bogus", "1"};
+        const args a{"--port", "10000"}; // environment belongs in the file
         CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "unknown option"));
     }
     {
-        const args a{"--port"};
+        const args a{"--sid"};
         CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "missing value"));
-    }
-    {
-        const args a{"--port", "abc"};
-        CHECK(contains(config_error_of([&] { load_config(a.argc(), a.argv()); }), "expected a number"));
     }
     {
         const args a{"--config", "no_such_file.json"};
@@ -148,10 +171,12 @@ void test_rejections()
         std::filesystem::remove(path);
     }
     {
-        // every problem is reported at once
-        const args a{"--port", "70000", "--threads", "0"};
+        // every problem is reported at once, from both halves
+        const std::string path = write_temp("strandwire_app_test_two.json", R"({"port": 70000, "threads": 0})");
+        const args a{"--sid", "1.2.3", "--config", path.c_str()};
         const std::string e = config_error_of([&] { load_config(a.argc(), a.argv()); });
-        CHECK(contains(e, "port") && contains(e, "threads"));
+        CHECK(contains(e, "sid") && contains(e, "port") && contains(e, "threads"));
+        std::filesystem::remove(path);
     }
 }
 
@@ -267,18 +292,23 @@ void test_failed_logger_fails_pre_init()
     std::filesystem::remove(blocker);
 }
 
-// The config main() loads are what the app runs with: the --port it parsed is the port the
-// app listens on.
+// The config main() loads is what the app runs with: the sid from the command line and the port
+// from the file are what the server starts with.
 void test_loaded_config_reaches_the_app()
 {
-    const args a{"--port", "0", "--threads", "1", "--log-level", "off"};
-    server_config s = load_config(a.argc(), a.argv());
-    s.log.console = false;
+    const std::string path = write_temp("strandwire_app_test_app.json",
+                                        R"({"port": 0, "threads": 1, "log": {"level": "off"}})");
+    const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
+    server_config c = load_config(a.argc(), a.argv());
+    std::filesystem::remove(path);
+    c.log.console = false;
 
     server_app app;
-    CHECK(app.pre_init_instance(std::move(s)));
+    CHECK(app.pre_init_instance(std::move(c)));
     CHECK(app.init_instance());
     CHECK(app.start());
+    CHECK(app.config().server.ip == "127.0.0.1");
+    CHECK(app.config().server.sid.to_string() == "0.0.11.7");
     CHECK(app.config().server.threads == 1);
     CHECK(app.config().log.log_level == nslog::level::off);
     CHECK(app.port() != 0); // 0 asked for an ephemeral port and got one
@@ -293,7 +323,7 @@ int main()
 {
     test_support::init();
     test_defaults();
-    test_precedence();
+    test_command_line_and_file();
     test_rejections();
     test_lifecycle();
     test_failed_phase_tears_down_in_reverse();

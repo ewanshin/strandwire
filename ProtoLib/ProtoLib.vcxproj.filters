@@ -11,7 +11,7 @@
   <ItemGroup>
     <CustomBuild Include="chat.proto"><Filter>Proto Files</Filter></CustomBuild>
     <CustomBuild Include="error_code.proto"><Filter>Proto Files</Filter></CustomBuild>
-    <CustomBuild Include="server_config.proto"><Filter>Proto Files</Filter></CustomBuild>
+    <CustomBuild Include="lobby_config.proto"><Filter>Proto Files</Filter></CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(NetSysGenDir)chat.pb.cc"><Filter>Generated</Filter></ClCompile>

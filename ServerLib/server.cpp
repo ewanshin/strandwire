@@ -31,7 +31,7 @@ server::~server()
 // with wait(). Throws (port in use, no permission) before any thread starts.
 void server::start()
 {
-    const asio::ip::tcp::endpoint ep(asio::ip::tcp::v4(), options_.port);
+    const asio::ip::tcp::endpoint ep(asio::ip::make_address(options_.ip), options_.port);
     acceptor_.open(ep.protocol());
     // Lets the server restart right away while old connections are still in TIME_WAIT.
     acceptor_.set_option(asio::socket_base::reuse_address(true));
@@ -52,7 +52,7 @@ void server::start()
     for (unsigned i = 0; i < options_.threads; ++i)
         threads_.emplace_back([this] { io_.run(); });
 
-    server_log.info("server start: port=", port(), " threads=", options_.threads, " sid=", options_.sid.to_string(),
+    server_log.info("server start: ip=", options_.ip, " port=", port(), " threads=", options_.threads, " sid=", options_.sid.to_string(),
                     " timeout=", options_.session_timeout.count(), "ms");
 }
 

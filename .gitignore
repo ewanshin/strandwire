@@ -245,5 +245,5 @@ ModelManifest.xml
 third_party/_install/
 third_party/_build/
 
-# Local server configuration (copy NetworkServer/server.example.json)
-NetworkServer/server.json
+# Local server configuration (copy NetworkServer/lobby_config.example.json)
+NetworkServer/lobby_config.json

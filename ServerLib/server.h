@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -17,6 +18,7 @@
 
 struct server_options
 {
+    std::string ip = "0.0.0.0";       // address to listen on; 0.0.0.0 = every interface
     std::uint16_t port = LISTEN_PORT; // 0 picks an ephemeral port (see server::port())
     unsigned threads = 1;             // clamped to at least 1
     // This server's own sid. Its type decides which tunnel it serves; anycast CONNECTs for that

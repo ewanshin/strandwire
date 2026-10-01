@@ -56,13 +56,14 @@ Run
 ---
 
 ```
-NetworkServer --port 10000            # ESC or Ctrl+C stops it; --config server.json reads a JSON file
+NetworkServer --sid 0.0.11.1 --config lobby_config.json   # ESC or Ctrl+C stops it
 NetworkClient 127.0.0.1 10000 <name>
 DummyClient --ip 127.0.0.1 --port 10000 --session 100 --duration 10
 ```
 
-Every executable accepts `--log-level <level>` and `--log-dir <folder>` (no file log by default).
-The server also reads `--config <file>`; see `NetworkServer/server.example.json`. Command-line options override the file.
+The server's command line names the instance (`--ip`, `--sid`) and its environment file (`--config`); the file
+holds port, threads, timeout and log settings. See `NetworkServer/lobby_config.example.json`. Without a file it
+listens on port 10000. The clients accept `--log-level <level>` and `--log-dir <folder>` (no file log by default).
 
 Documents
 ---

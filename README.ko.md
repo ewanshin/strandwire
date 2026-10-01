@@ -55,13 +55,14 @@ Visual Studio (Windows)
 ---
 
 ```
-NetworkServer --port 10000            # ESC 또는 Ctrl+C로 종료. --config server.json으로 JSON 설정 파일을 읽는다
+NetworkServer --sid 0.0.11.1 --config lobby_config.json   # ESC 또는 Ctrl+C로 종료
 NetworkClient 127.0.0.1 10000 <name>
 DummyClient --ip 127.0.0.1 --port 10000 --session 100 --duration 10
 ```
 
-모든 실행 파일은 `--log-level <level>`과 `--log-dir <폴더>`(기본은 파일 로그 없음)를 받는다.
-서버는 `--config <파일>`도 받는다. `NetworkServer/server.example.json` 참고. 명령줄 옵션이 파일보다 우선한다.
+서버의 명령줄은 인스턴스의 정체(`--ip`, `--sid`)와 환경 파일(`--config`)만 지정한다. 포트, 스레드, 타임아웃, 로그
+설정은 파일에 둔다. `NetworkServer/lobby_config.example.json` 참고. 파일이 없으면 10000번 포트로 뜬다. 클라이언트는
+`--log-level <level>`과 `--log-dir <폴더>`(기본은 파일 로그 없음)를 받는다.
 
 문서
 ---

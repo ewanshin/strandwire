@@ -3,7 +3,7 @@
 set(NETSYS_PROTO_FILES
     chat.proto
     error_code.proto
-    server_config.proto
+    lobby_config.proto
 )
 
 set(_gen_dir ${CMAKE_CURRENT_BINARY_DIR}/gen)
