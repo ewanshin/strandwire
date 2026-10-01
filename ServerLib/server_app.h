@@ -93,6 +93,7 @@ private:
 
     // Brings up PHASES[phases_up_ .. end) in order; on failure tears everything down and returns false.
     bool run_phases_until(std::size_t end);
+    static const char* step_name(std::size_t phase); // "pre_init_instance", "init_instance" or "start"
 
     bool up_config();
     bool up_logger();

@@ -54,6 +54,16 @@ void note_error(const Args&... args)
 
 } // namespace
 
+// The lifecycle method a phase index belongs to, for the failure log line.
+const char* server_app::step_name(std::size_t phase)
+{
+    if (phase < PHASE_CONNECTIONS)
+        return "pre_init_instance";
+    if (phase < PHASE_LISTEN)
+        return "init_instance";
+    return "start";
+}
+
 server_app::server_app() = default;
 
 // Destroying the app tears down whatever is still up, so a caller that forgets exit_instance()
@@ -105,6 +115,10 @@ bool server_app::start()
 // Runs every phase from the first one not yet up to `end` (exclusive). On the first failure the
 // failed phase is unwound (it may be half up: see run_components), then every earlier phase, and
 // false is returned.
+//
+// Every outcome is logged while the logger is still up: each phase's "up" line, and on failure
+// one line naming the lifecycle method and the phase, before the teardown takes the logger down.
+// The phase itself has already logged the detailed reason.
 bool server_app::run_phases_until(std::size_t end)
 {
     for (std::size_t i = phases_up_; i < end; ++i) {
@@ -112,7 +126,8 @@ bool server_app::run_phases_until(std::size_t end)
         const bool ok = (this->*PHASES[i].up)();
         if (!ok) {
             trace_.push_back(std::string("fail:") + PHASES[i].name);
-            note_error("phase '", PHASES[i].name, "' failed after ", ms_since(t0), "ms: shutting down");
+            note_error(step_name(i), " failed at phase '", PHASES[i].name, "' after ", ms_since(t0),
+                       "ms: start-up aborted, tearing down");
             // The failed phase may have brought up part of itself (e.g. the first of two
             // connections). Its down() knows what came up; then the earlier phases follow.
             (this->*PHASES[i].down)();
@@ -185,11 +200,11 @@ bool server_app::up_logger()
     return true;
 }
 
-// The logger is torn down last (its phase came up second), so "server stopped" is the last line.
-// logger::stop() flushes and joins the logging thread while spdlog's statics are still alive.
+// The logger is torn down second to last, so this is the last line in the log. logger::stop()
+// flushes and joins the logging thread while spdlog's statics are still alive.
 void server_app::down_logger()
 {
-    server_log.info("server stopped: stopping the logger, further lines go to the console");
+    server_log.info("stopping the logger: later lines go to the console");
     server_log.stop();
 }
 
@@ -240,6 +255,7 @@ void server_app::down_listen()
     server_->stop();
     server_->wait();
     server_.reset();
+    server_log.info("server stopped");
 }
 
 // Brings up list[started..] one by one. `started` is the number of components whose
