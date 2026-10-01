@@ -249,6 +249,24 @@ void test_failed_asset_after_connections()
     CHECK(app.trace() == expected);
 }
 
+// The logger belongs to pre_init_instance: when it cannot start (the log folder is a path under a
+// regular file, so create_directories throws), pre_init_instance fails, the config phase is undone
+// and init_instance refuses to run. The one "[nslog] cannot start logger" line on stderr is expected.
+void test_failed_logger_fails_pre_init()
+{
+    const std::string blocker = write_temp("strandwire_app_test_blocker", "not a folder");
+    server_settings s = quiet_settings();
+    s.log.folder_name = blocker + "/logs";
+
+    server_app app;
+    CHECK(!app.pre_init_instance(std::move(s)));
+    CHECK(!app.init_instance());
+    CHECK(!app.listening());
+    const std::vector<std::string> expected = {"up:config", "fail:logger", "down:logger", "down:config"};
+    CHECK(app.trace() == expected);
+    std::filesystem::remove(blocker);
+}
+
 // The settings main() resolves are what the app runs with: the --port it parsed is the port the
 // app listens on.
 void test_resolved_settings_reach_the_app()
@@ -280,6 +298,7 @@ int main()
     test_lifecycle();
     test_failed_phase_tears_down_in_reverse();
     test_failed_asset_after_connections();
+    test_failed_logger_fails_pre_init();
     test_resolved_settings_reach_the_app();
     std::cout << "app_test: OK\n";
     return 0;

@@ -6,7 +6,7 @@
 #include "ServerLib/server_log.h"
 
 // The phase table. Order matters: the lifecycle methods walk it forwards in slices
-// (pre_init_instance = [0,1), init_instance = [1,4), start = [4,5)) and exit_instance() walks it
+// (pre_init_instance = [0,2), init_instance = [2,4), start = [4,5)) and exit_instance() walks it
 // backwards. Each entry pairs an "up" step with the "down" step that undoes it. Adding a phase
 // means adding one row here, the two member functions, and adjusting the PHASE_* indices.
 const server_app::phase server_app::PHASES[] = {
@@ -73,20 +73,20 @@ void server_app::add_asset(std::unique_ptr<server_component> c)
     assets_.push_back(std::move(c));
 }
 
-// Phase 1. The settings are already resolved and validated; the caller dealt with any error
-// before there was an app (the logger is configured by these very settings, so a bad
-// configuration cannot be logged).
+// Phases 1-2: settings, then the logger. The settings are already resolved and validated; the
+// caller dealt with any error before there was an app (the logger is configured by these very
+// settings, so a bad configuration cannot be logged). After this every later phase can log.
 bool server_app::pre_init_instance(server_settings settings)
 {
     settings_ = std::move(settings);
     have_settings_ = true;
-    return run_phases_until(PHASE_LOGGER);
+    return run_phases_until(PHASE_CONNECTIONS);
 }
 
-// Phases 2-4: logger, external connections, assets.
+// Phases 3-4: external connections, assets.
 bool server_app::init_instance()
 {
-    if (phases_up_ < PHASE_LOGGER)
+    if (phases_up_ < PHASE_CONNECTIONS)
         return false; // pre_init_instance() did not succeed
     return run_phases_until(PHASE_LISTEN);
 }

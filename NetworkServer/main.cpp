@@ -15,15 +15,15 @@
 enum exit_code : int
 {
     EXIT_OK = 0,
-    EXIT_CONFIG = 1, // resolve_settings or pre_init_instance: invalid settings
-    EXIT_INIT = 2,   // init_instance: logger, a connection or an asset did not come up
+    EXIT_CONFIG = 1, // resolve_settings or pre_init_instance: invalid settings, or the logger did not start
+    EXIT_INIT = 2,   // init_instance: a connection or an asset did not come up
     EXIT_START = 3,  // start: could not listen
 };
 
 // Reading the command line is the executable's job; server_app takes finished settings. The
-// three set-up steps are then called one by one so that each failure can be named here. The
-// logger exists only after init_instance(), so these messages go to std::cerr; server_app itself
-// already printed the detailed reason.
+// three set-up steps are then called one by one so that each failure can be named here. A failed
+// step has already torn down what came up, including the logger, so these messages go to
+// std::cerr; server_app itself already printed the detailed reason.
 int main(int argc, char* argv[])
 {
     console::init_utf8_output(); // player names in the log are UTF-8
@@ -41,11 +41,12 @@ int main(int argc, char* argv[])
     server_app app;
 
     if (!app.pre_init_instance(std::move(settings))) {
-        std::cerr << "[NetworkServer] pre_init_instance failed, exit code " << EXIT_CONFIG << std::endl;
+        std::cerr << "[NetworkServer] pre_init_instance failed: the logger did not start, exit code " << EXIT_CONFIG
+                  << std::endl;
         return EXIT_CONFIG;
     }
     if (!app.init_instance()) {
-        std::cerr << "[NetworkServer] init_instance failed: logger, connections or assets did not come up, exit code "
+        std::cerr << "[NetworkServer] init_instance failed: a connection or an asset did not come up, exit code "
                   << EXIT_INIT << std::endl;
         return EXIT_INIT;
     }

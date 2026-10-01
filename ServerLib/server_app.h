@@ -4,8 +4,8 @@
 // (CLAUDE.md "Lifecycle method names"):
 //
 //   pre_init_instance   1. config       take the settings the caller resolved (resolve_settings in main)
-//   init_instance       2. logger       start server_log as configured
-//                       3. connections  external environment (DB, cache, discovery): add_connection()
+//                       2. logger       start server_log as configured
+//   init_instance       3. connections  external environment (DB, cache, discovery): add_connection()
 //                       4. assets       data loaded before serving: add_asset()
 //   start               5. listen       register handlers and start accepting connections
 //   stop / wait            request a stop, wait until the server has stopped
@@ -49,11 +49,12 @@ public:
     void add_connection(std::unique_ptr<server_component> c);
     void add_asset(std::unique_ptr<server_component> c);
 
-    // Phase 1. Takes the settings and prints them. Resolving them from the command line is the
-    // executable's job (resolve_settings in server_config.h), so the app does not care whether
-    // they came from argv, a test or an embedder.
+    // Phases 1-2: what everything else needs first. Takes the settings, prints them, and starts
+    // the logger with them. Resolving the settings from the command line is the executable's job
+    // (resolve_settings in server_config.h), so the app does not care whether they came from
+    // argv, a test or an embedder.
     bool pre_init_instance(server_settings settings);
-    // Phases 2-4: logger, connections, assets. Requires pre_init_instance().
+    // Phases 3-4: connections, assets. Requires pre_init_instance().
     bool init_instance();
     // Phase 5: construct the server and listen. Requires init_instance(). After this the server
     // accepts connections and only stop()/wait()/exit_instance() remain.
@@ -86,7 +87,8 @@ private:
     static const phase PHASES[]; // exactly PHASE_COUNT rows, in the order of the PHASE_* indices
     static constexpr std::size_t PHASE_CONFIG = 0;
     static constexpr std::size_t PHASE_LOGGER = 1;
-    static constexpr std::size_t PHASE_LISTEN = 4;
+    static constexpr std::size_t PHASE_CONNECTIONS = 2; // first phase of init_instance()
+    static constexpr std::size_t PHASE_LISTEN = 4;      // the only phase of start()
     static constexpr std::size_t PHASE_COUNT = 5;
 
     // Brings up PHASES[phases_up_ .. end) in order; on failure tears everything down and returns false.
