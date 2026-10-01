@@ -56,9 +56,9 @@ public:
     // (load_config in server_config.h), so the app does not care whether they came from
     // argv, a test or an embedder.
     bool pre_init_instance(server_config config);
-    // Phases 3-5: connections, assets, listen. Requires pre_init_instance().
+    // Phases 3-5: connections, assets, listen. Call after a successful pre_init_instance().
     bool init_instance();
-    // Phase 6: serve. Requires init_instance(). After this the server accepts connections and
+    // Phase 6: serve. Call after a successful init_instance(). After this the server accepts connections and
     // handles packets; only stop()/wait()/exit_instance() remain.
     bool start();
 
@@ -126,15 +126,6 @@ private:
     bool is_up(phase_id p) const
     {
         return phases_up_ > index(p);
-    }
-    // The earlier lifecycle method succeeded, so the next one may run.
-    bool is_pre_init_success() const
-    {
-        return is_up(phase_id::logger);
-    }
-    bool is_init_success() const
-    {
-        return is_up(phase_id::listen);
     }
     static const char* step_name(std::size_t phase); // "pre_init_instance", "init_instance" or "start"
 

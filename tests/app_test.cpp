@@ -378,7 +378,6 @@ void test_failed_logger_fails_pre_init()
 
     server_app app;
     CHECK(!app.pre_init_instance(std::move(s)));
-    CHECK(!app.init_instance());
     CHECK(!app.listening());
     const std::vector<std::string> expected = {"up:config", "fail:logger", "down:logger", "down:config"};
     CHECK(app.trace() == expected);

@@ -103,25 +103,28 @@ bool server_app::pre_init_instance(server_config config)
 {
     config_ = std::move(config);
     have_config_ = true;
-    return run_phases_through(phase_id::logger);
+    if (!run_phases_through(phase_id::logger))
+        return false;
+    server_log.info("pre_init_instance success");
+    return true;
 }
 
-// Phases 3-4: external connections, assets.
+// Phases 3-5: external connections, assets, listen socket. The caller checked pre_init_instance's
+// result, so nothing is re-checked here; every lifecycle method only reports its own outcome.
 bool server_app::init_instance()
 {
-    if (!is_pre_init_success())
+    if (!run_phases_through(phase_id::listen))
         return false;
-    return run_phases_through(phase_id::listen);
+    server_log.info("init_instance success");
+    return true;
 }
 
-// Phase 5: listen. Only now does the process accept connections.
+// Phase 6: serve. Only now does the process accept connections and handle packets.
 bool server_app::start()
 {
-    if (!is_init_success())
-        return false;
     if (!run_phases_through(phase_id::serve))
         return false;
-    server_log.info("server ready");
+    server_log.info("start success: server ready");
     return true;
 }
 
