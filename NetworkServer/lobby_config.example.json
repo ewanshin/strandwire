@@ -4,6 +4,7 @@
   "session_timeout_ms": 5000,
   "log": {
     "level": "info",
-    "dir": ""
+    "dir": "",
+    "console": true
   }
 }

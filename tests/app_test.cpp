@@ -95,6 +95,7 @@ void test_command_line_and_file()
     CHECK(c.server.threads == 2);                      // file
     CHECK(c.log.log_level == nslog::level::debug);     // file
     CHECK(c.server.session_timeout.count() == 5000);   // default: the file did not set it
+    CHECK(c.log.console);                              // default
     CHECK(c.config_path == path);
     std::filesystem::remove(path);
 }
@@ -297,11 +298,11 @@ void test_failed_logger_fails_pre_init()
 void test_loaded_config_reaches_the_app()
 {
     const std::string path = write_temp("strandwire_app_test_app.json",
-                                        R"({"port": 0, "threads": 1, "log": {"level": "off"}})");
+                                        R"({"port": 0, "threads": 1, "log": {"level": "off", "console": false}})");
     const args a{"--ip", "127.0.0.1", "--sid", "0.0.11.7", "--config", path.c_str()};
     server_config c = load_config(a.argc(), a.argv());
     std::filesystem::remove(path);
-    c.log.console = false;
+    CHECK(!c.log.console); // file
 
     server_app app;
     CHECK(app.pre_init_instance(std::move(c)));

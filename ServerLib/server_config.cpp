@@ -17,8 +17,8 @@ const char* const SERVER_USAGE =
     "usage: NetworkServer [--ip <address>] [--sid d.i.t.id] [--config <file.json>]\n"
     "  --ip      address to listen on (default 0.0.0.0 = every interface)\n"
     "  --sid     this server's identity, domain.idc.type.id (default 0.0.11.1)\n"
-    "  --config  environment file: port, threads, session_timeout_ms, log.level, log.dir\n"
-    "            (see NetworkServer/lobby_config.example.json; absent keys keep the defaults)\n";
+    "  --config  environment file: port, threads, session_timeout_ms, log.level, log.dir,\n"
+    "            log.console (see NetworkServer/lobby_config.example.json; absent keys keep the defaults)\n";
 
 // Only three options, all "--name value". Anything else is a typo, not a request for a default.
 command_line parse_command_line(int argc, char* const argv[])
@@ -135,6 +135,8 @@ server_config load_config(const command_line& cli, const config::lobby_config& f
         }
         if (file.log().has_dir())
             c.log.folder_name = file.log().dir(); // empty keeps the file log off
+        if (file.log().has_console())
+            c.log.console = file.log().console();
     }
 
     if (!problems.empty()) {
@@ -156,6 +158,8 @@ std::string describe(const server_config& c)
                        std::string(nslog::to_string(c.log.log_level));
     if (!c.log.folder_name.empty())
         text += " log_dir=" + c.log.folder_name;
+    if (!c.log.console)
+        text += " console=off";
     if (!c.config_path.empty())
         text += " config=" + c.config_path;
     return text;

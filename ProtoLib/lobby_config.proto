@@ -10,7 +10,8 @@ package config;
 
 message log_config {
   optional string level = 1; // trace | debug | info | warn | error | fatal | off
-  optional string dir = 2;   // folder for the daily log file; empty or absent = console only
+  optional string dir = 2;   // folder for the daily log file; empty or absent = no file log
+  optional bool console = 3; // write to the console; default true
 }
 
 message lobby_config {
