@@ -84,7 +84,7 @@ private:
         bool (server_app::*up)();
         void (server_app::*down)();
     };
-    // The phases in order. Each value is the row's index in PHASES; `count` is the number of rows.
+    // The phases in order. Each value is the row's index in PHASES.
     enum class phase_id : std::size_t
     {
         config,      // pre_init_instance
@@ -92,14 +92,19 @@ private:
         connections, // init_instance
         assets,      //
         listen,      // start
-        count,
     };
+    static constexpr std::size_t PHASE_COUNT = 5;
     static const phase PHASES[]; // one row per phase_id, in that order
     static constexpr std::size_t index(phase_id p) { return static_cast<std::size_t>(p); }
 
-    // Brings up every phase from the first one not yet up to `end` (exclusive), in order; on
-    // failure tears everything down and returns false.
-    bool run_phases_until(phase_id end);
+    // Brings up every phase from the first one not yet up through `last` (inclusive), in order;
+    // on failure tears everything down and returns false.
+    bool run_phases_through(phase_id last);
+    // Whether every phase up to and including p is up.
+    bool is_up(phase_id p) const { return phases_up_ > index(p); }
+    // The earlier lifecycle method succeeded, so the next one may run.
+    bool is_pre_init_success() const { return is_up(phase_id::logger); }
+    bool is_init_success() const { return is_up(phase_id::assets); }
     static const char* step_name(std::size_t phase); // "pre_init_instance", "init_instance" or "start"
 
     bool up_config();
