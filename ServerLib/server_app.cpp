@@ -7,7 +7,7 @@
 #include "ServerLib/server_log.h"
 
 // The phase table. Order matters: the lifecycle methods walk it forwards in slices
-// (pre_init_instance through logger, init_instance through assets, start through listen) and exit_instance() walks it
+// (pre_init_instance through logger, init_instance through listen, start through serve) and exit_instance() walks it
 // backwards. Each entry pairs an "up" step with the "down" step that undoes it. Adding a phase
 // means adding one row here, the two member functions, and one phase_id value at the same position.
 const server_app::phase server_app::PHASES[] = {
@@ -16,6 +16,7 @@ const server_app::phase server_app::PHASES[] = {
     {"connections", &server_app::up_connections, &server_app::down_connections},
     {"assets", &server_app::up_assets, &server_app::down_assets},
     {"listen", &server_app::up_listen, &server_app::down_listen},
+    {"serve", &server_app::up_serve, &server_app::down_serve},
 };
 
 namespace
@@ -60,7 +61,7 @@ const char* server_app::step_name(std::size_t phase)
 {
     if (phase < index(phase_id::connections))
         return "pre_init_instance";
-    if (phase < index(phase_id::listen))
+    if (phase < index(phase_id::serve))
         return "init_instance";
     return "start";
 }
@@ -69,7 +70,7 @@ server_app::server_app()
 {
     // Checked here rather than at namespace scope because PHASES and phase_id are private.
     static_assert(std::size(PHASES) == PHASE_COUNT, "one PHASES row per phase_id value");
-    static_assert(index(phase_id::listen) + 1 == PHASE_COUNT, "listen is the last phase");
+    static_assert(index(phase_id::serve) + 1 == PHASE_COUNT, "serve is the last phase");
 }
 
 // Destroying the app tears down whatever is still up, so a caller that forgets exit_instance()
@@ -104,7 +105,7 @@ bool server_app::init_instance()
 {
     if (!is_pre_init_success())
         return false;
-    return run_phases_through(phase_id::assets);
+    return run_phases_through(phase_id::listen);
 }
 
 // Phase 5: listen. Only now does the process accept connections.
@@ -112,7 +113,7 @@ bool server_app::start()
 {
     if (!is_init_success())
         return false;
-    if (!run_phases_through(phase_id::listen))
+    if (!run_phases_through(phase_id::serve))
         return false;
     server_log.info("server ready");
     return true;
@@ -237,30 +238,53 @@ void server_app::down_assets()
     stop_components(assets_, assets_started_, "asset");
 }
 
-// Phase 5, the last one. server's constructor registers the message handlers (a msgid collision
-// throws) and start() binds, listens and launches the worker threads (a port in use throws).
-// Either exception fails the phase.
+// Phase 5, the last of init_instance. server's constructor registers the message handlers (a
+// msgid collision throws) and init_instance() binds and listens (a port in use throws). Either
+// exception fails the phase. From here the port is held and clients can connect, but no
+// connection is accepted and no byte is read: that is phase 6.
 bool server_app::up_listen()
 {
     try {
         server_ = std::make_unique<server>(config_.server);
-        server_->start();
+        server_->init_instance();
         return true;
     } catch (const std::exception& e) {
-        server_log.fatal("cannot start server: ", e.what());
+        server_log.fatal("cannot listen: ", e.what());
         server_.reset();
         return false;
     }
 }
 
-// Stop accepting, close every session, join the workers, then destroy the server object.
+// Release the listen socket and destroy the server object. Runs after down_serve (or instead of
+// it, when serve never came up), so no worker thread is alive.
 void server_app::down_listen()
 {
     if (!server_)
         return;
+    server_->exit_instance();
+    server_.reset();
+    server_log.info("listen socket closed");
+}
+
+// Phase 6, the only phase of start(). Later this is also where the server connects to other
+// servers it depends on, before it starts handling packets. The accept loop and the worker
+// threads start here; the connections queued since phase 5 are accepted now.
+bool server_app::up_serve()
+{
+    try {
+        server_->start();
+        return true;
+    } catch (const std::exception& e) {
+        server_log.fatal("cannot start serving: ", e.what());
+        return false;
+    }
+}
+
+// Stop accepting, close every session, join the workers. The listen socket stays with phase 5.
+void server_app::down_serve()
+{
     server_->stop();
     server_->wait();
-    server_.reset();
     server_log.info("server stopped");
 }
 

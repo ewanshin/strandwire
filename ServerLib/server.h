@@ -37,12 +37,18 @@ public:
     server(const server&) = delete;
     server& operator=(const server&) = delete;
 
-    // Binds, listens, spawns the accept loop and the worker threads. Returns immediately.
+    // Opens, binds and listens. From here the OS completes TCP handshakes into the backlog, but
+    // nothing is accepted or read until start(). Throws on a port in use or no permission.
+    void init_instance();
+    // Spawns the signal handler, the accept loop and the worker threads; packets are handled from
+    // here. Requires init_instance(). Returns immediately.
     void start();
     // Requests shutdown: closes the acceptor and every session. Non-blocking, idempotent.
     void stop();
     // Joins the worker threads. Returns after stop() has drained all work.
     void wait();
+    // Releases the listen socket. Call after wait() (or without start()); idempotent.
+    void exit_instance();
 
     std::uint16_t port() const;
     std::size_t session_count() const { return manager_.count(); }

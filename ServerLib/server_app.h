@@ -7,12 +7,14 @@
 //                       2. logger       start server_log as configured
 //   init_instance       3. connections  external environment (DB, cache, discovery): add_connection()
 //                       4. assets       data loaded before serving: add_asset()
-//   start               5. listen       register handlers and start accepting connections
+//                       5. listen       bind/listen: the OS completes handshakes, nothing is accepted or read
+//   start               6. serve        (later: connect to other servers) accept loop and workers
 //   stop / wait            request a stop, wait until the server has stopped
 //   exit_instance          tear down every phase that came up, in reverse
 //
 // Each step runs the phases in order and stops at the first failure; a failure tears down
-// everything that came up and returns false. Nothing is accepted before every phase is up.
+// everything that came up and returns false. No packet is handled before start(): until then a
+// client can connect, but its bytes wait in the kernel.
 // Phases 3 and 4 are empty today: the component interface is the hook for later work.
 
 #include <chrono>
@@ -54,10 +56,10 @@ public:
     // (load_config in server_config.h), so the app does not care whether they came from
     // argv, a test or an embedder.
     bool pre_init_instance(server_config config);
-    // Phases 3-4: connections, assets. Requires pre_init_instance().
+    // Phases 3-5: connections, assets, listen. Requires pre_init_instance().
     bool init_instance();
-    // Phase 5: construct the server and listen. Requires init_instance(). After this the server
-    // accepts connections and only stop()/wait()/exit_instance() remain.
+    // Phase 6: serve. Requires init_instance(). After this the server accepts connections and
+    // handles packets; only stop()/wait()/exit_instance() remain.
     bool start();
 
     // Typical main(): pre_init_instance -> init_instance -> start -> wait -> exit_instance.
@@ -67,7 +69,8 @@ public:
     void wait();          // blocks until the server has stopped
     void exit_instance(); // reverse teardown of every phase that came up; idempotent
 
-    bool listening() const { return server_ != nullptr; }
+    bool listening() const { return server_ != nullptr; } // listen phase up: the port is held
+    bool serving() const { return is_up(phase_id::serve); } // serve phase up: packets are handled
     std::uint16_t port() const { return server_ ? server_->port() : 0; }
     const server_config& config() const { return config_; } // valid after pre_init_instance()
 
@@ -91,9 +94,10 @@ private:
         logger,      //
         connections, // init_instance
         assets,      //
-        listen,      // start
+        listen,      //
+        serve,       // start
     };
-    static constexpr std::size_t PHASE_COUNT = 5;
+    static constexpr std::size_t PHASE_COUNT = 6;
     static const phase PHASES[]; // one row per phase_id, in that order
     static constexpr std::size_t index(phase_id p) { return static_cast<std::size_t>(p); }
 
@@ -104,7 +108,7 @@ private:
     bool is_up(phase_id p) const { return phases_up_ > index(p); }
     // The earlier lifecycle method succeeded, so the next one may run.
     bool is_pre_init_success() const { return is_up(phase_id::logger); }
-    bool is_init_success() const { return is_up(phase_id::assets); }
+    bool is_init_success() const { return is_up(phase_id::listen); }
     static const char* step_name(std::size_t phase); // "pre_init_instance", "init_instance" or "start"
 
     bool up_config();
@@ -112,11 +116,13 @@ private:
     bool up_connections();
     bool up_assets();
     bool up_listen();
+    bool up_serve();
     void down_nothing() {}
     void down_logger();
     void down_connections();
     void down_assets();
     void down_listen();
+    void down_serve();
 
     bool run_components(std::vector<std::unique_ptr<server_component>>& list, std::size_t& started,
                         const char* kind);

@@ -122,6 +122,7 @@ void test_main_flow()
     opt.port = 0;
     opt.threads = 2;
     server srv(opt);
+    srv.init_instance();
     srv.start();
     const std::uint16_t port = srv.port();
     CHECK(port != 0);
@@ -296,6 +297,7 @@ void test_close_during_write()
     opt.port = 0;
     opt.threads = 2;
     server srv(opt);
+    srv.init_instance();
     srv.start();
     const std::uint16_t port = srv.port();
 
@@ -346,6 +348,7 @@ void test_timeout()
     opt.threads = 1;
     opt.session_timeout = 300ms;
     server srv(opt);
+    srv.init_instance();
     srv.start();
     const std::uint16_t port = srv.port();
 
@@ -385,6 +388,44 @@ void test_timeout()
     srv.wait();
 }
 
+// Between init_instance() and start() the port is held: a client can connect and send, but the
+// server accepts nothing and reads nothing. start() then accepts the queued connection and
+// handles the bytes that waited in the kernel.
+void test_listen_before_start()
+{
+    server_options opt;
+    opt.port = 0;
+    opt.threads = 1;
+    server srv(opt);
+    srv.init_instance(); // no start() yet
+    const std::uint16_t port = srv.port();
+    CHECK(port != 0);
+
+    asio::io_context io;
+    test_client c(io);
+    bool done = false;
+
+    asio::co_spawn(io, [&]() -> asio::awaitable<void> {
+        co_await c.connect(port); // the OS completes the handshake from the backlog
+        co_await c.send(lpn::make_heartbeat(lpn::heartbeat_command::noop_req));
+        co_await sleep_for(io, 300ms);
+        CHECK(srv.session_count() == 0); // not accepted: no session exists
+
+        srv.start();
+        const lpn::frame f = co_await c.read(); // the queued connection is accepted, the heartbeat answered
+        CHECK(f.type == lpn::packet_type::heartbeat);
+        CHECK(f.param == static_cast<std::uint8_t>(lpn::heartbeat_command::noop_res));
+        CHECK(wait_for_count(srv, 1, 5s));
+        done = true;
+    }, asio::detached);
+
+    io.run_for(20s);
+    CHECK(done);
+
+    srv.stop();
+    srv.wait();
+}
+
 } // namespace
 
 int main()
@@ -399,6 +440,7 @@ int main()
     test_main_flow();
     test_close_during_write();
     test_timeout();
+    test_listen_before_start();
 
     server_log.stop();
     std::cout << "smoke_test: OK\n";

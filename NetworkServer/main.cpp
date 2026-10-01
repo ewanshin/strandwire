@@ -16,8 +16,8 @@ enum exit_code : int
 {
     EXIT_OK = 0,
     EXIT_CONFIG = 1, // load_config or pre_init_instance: invalid config, or the logger did not start
-    EXIT_INIT = 2,   // init_instance: a connection or an asset did not come up
-    EXIT_START = 3,  // start: could not listen
+    EXIT_INIT = 2,   // init_instance: a connection, an asset or the listen socket did not come up
+    EXIT_START = 3,  // start: could not start serving
 };
 
 // Reading the command line is the executable's job; server_app takes a finished config. The
@@ -46,12 +46,13 @@ int main(int argc, char* argv[])
         return EXIT_CONFIG;
     }
     if (!app.init_instance()) {
-        std::cerr << "[NetworkServer] init_instance failed: a connection or an asset did not come up, exit code "
+        std::cerr << "[NetworkServer] init_instance failed: a connection, an asset or the listen socket did not "
+                     "come up, exit code "
                   << EXIT_INIT << std::endl;
         return EXIT_INIT;
     }
     if (!app.start()) {
-        std::cerr << "[NetworkServer] start failed: could not listen, exit code " << EXIT_START << std::endl;
+        std::cerr << "[NetworkServer] start failed: could not start serving, exit code " << EXIT_START << std::endl;
         return EXIT_START;
     }
 

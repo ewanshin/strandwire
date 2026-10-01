@@ -214,19 +214,23 @@ void test_lifecycle()
 
     CHECK(app.pre_init_instance(quiet_config()));
     CHECK(app.init_instance());
-    CHECK(app.start());
-    CHECK(app.listening());
+    CHECK(app.listening()); // the port is held after init_instance ...
+    CHECK(!app.serving());  // ... but nothing is accepted before start
     CHECK(app.port() != 0);
+    CHECK(app.start());
+    CHECK(app.serving());
 
     app.stop();
     app.wait();
     app.exit_instance();
+    CHECK(!app.serving());
     CHECK(!app.listening());
 
     const std::vector<std::string> expected = {
         "up:config", "up:logger", "up:connection:db", "up:connections", "up:asset:words", "up:assets", "up:listen",
-        "down:listen", "down:asset:words", "down:assets", "down:connection:db", "down:connections", "down:logger",
-        "down:config",
+        "up:serve",
+        "down:serve", "down:listen", "down:asset:words", "down:assets", "down:connection:db", "down:connections",
+        "down:logger", "down:config",
     };
     CHECK(app.trace() == expected);
 
