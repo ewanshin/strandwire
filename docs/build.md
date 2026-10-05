@@ -1,5 +1,7 @@
 # Build and run
 
+English | [한국어](build.ko.md)
+
 How to build on each OS with CMake or the Visual Studio solution, and how to run the server, the clients
 and the tests. What the targets are is in `docs/architecture.md`.
 

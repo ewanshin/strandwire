@@ -77,6 +77,8 @@ DummyClient --ip 127.0.0.1 --port 10000 --session 100 --duration 10
 | `docs/specs/2026-09-17-asio-cmake-migration-design.md` | asio/CMake 이식 설계와 검토한 대안 |
 | `CLAUDE.md` | 코드 변경 규칙: 규약, 포매팅, 생명주기 이름, 변경 절차 |
 
+모든 문서는 옆에 한국어판(`*.ko.md`)이 있다. 코드 주석은 영어 뒤에 한국어가 따른다.
+
 의존성
 ---
 

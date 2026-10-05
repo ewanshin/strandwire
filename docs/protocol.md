@@ -1,5 +1,7 @@
 # Protocol (LPN)
 
+English | [한국어](protocol.ko.md)
+
 The bytes exchanged between server and client over TCP, the design decisions behind them, and how to change them.
 
 - Implementation: `common/lpn/`. Constants in `wire.h`, byte layout in `frame.h`.

@@ -76,6 +76,8 @@ Documents
 | `docs/specs/2026-09-17-asio-cmake-migration-design.md` | asio/CMake migration design and the alternatives considered |
 | `CLAUDE.md` | Rules for changing the code: conventions, formatting, lifecycle names, change procedures |
 
+Every document has a Korean mirror next to it (`*.ko.md`). Code comments are English followed by Korean.
+
 Dependencies
 ---
 

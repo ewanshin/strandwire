@@ -1,5 +1,7 @@
 # asio + CMake migration design
 
+English | [한국어](2026-09-17-asio-cmake-migration-design.ko.md)
+
 - Written: 2026-09-17
 - Status: approved and implemented (2026-09-17, verified on Windows). Later revisions are dated inline.
 - Scope: the whole repository

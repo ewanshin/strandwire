@@ -1,5 +1,7 @@
 # Architecture
 
+English | [한국어](architecture.ko.md)
+
 What the code is and how it runs: the folders and build targets, each project, the wire protocol summary,
 the thread model, the session and server lifecycles, and what the tests check. The protocol itself is
 specified in `docs/protocol.md`; how to build and run is in `docs/build.md`; the rules for changing the code are
