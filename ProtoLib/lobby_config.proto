@@ -8,21 +8,39 @@ syntax = "proto2";
 // Every field is optional: an absent field keeps the built-in default. The server's identity
 // (--ip, --sid) comes from the command line, never from this file (see ServerLib/server_config.h).
 // These messages never go on the wire, so they are outside the msgid naming conventions.
+//
+// LOBBY 서버의 환경 파일이다. protobuf의 JsonStringToMessage로 JSON에서 읽는다.
+// 서버마다 <server>_config.proto 하나다. 루트 메시지는 관심사마다 섹션 하나를 가지므로 JSON 파일은
+// { "log_config": {...}, "listen_config": {...} }처럼 읽힌다. 모든 서버가 공유하는 섹션(log_config,
+// listen_config)은 두 번째 서버가 생길 때 base_config.proto로 옮기고 여기서 import한다.
+// LOBBY 전용 섹션은 생기는 대로 루트 메시지에 추가한다.
+// 모든 필드는 optional이다. 없는 필드는 내장 기본값을 유지한다. 서버의 신원(--ip, --sid)은 명령줄에서
+// 오며 이 파일에서는 절대 오지 않는다 (ServerLib/server_config.h 참조).
+// 이 메시지들은 와이어에 실리지 않으므로 msgid 이름 규약 밖에 있다.
 package config;
 
 message log_config {
-  optional string level = 1; // trace | debug | info | warn | error | fatal | off
-  optional string dir = 2;   // folder for the daily log file; empty or absent = no file log
-  optional bool console = 3; // write to the console; default true
+  // trace | debug | info | warn | error | fatal | off
+  // 로그 레벨: trace | debug | info | warn | error | fatal | off 중 하나
+  optional string level = 1;
+  // folder for the daily log file; empty or absent = no file log
+  // 일별 로그 파일의 폴더. 비어 있거나 없으면 파일 로그를 쓰지 않는다
+  optional string dir = 2;
+  optional bool console = 3; // write to the console; default true / 콘솔에 쓴다. 기본값 true
 }
 
 message listen_config {
-  optional uint32 port = 1;               // listen port, 1..65535 (0 = ephemeral, tests only)
-  optional uint32 threads = 2;            // io_context worker threads, 1..1024
-  optional uint32 session_timeout_ms = 3; // drop a connection after this long without any packet
+  // listen port, 1..65535 (0 = ephemeral, tests only)
+  // 수신 포트, 1..65535 (0 = 임시 포트, 테스트 전용)
+  optional uint32 port = 1;
+  optional uint32 threads = 2; // io_context worker threads, 1..1024 / io_context 워커 스레드 수, 1..1024
+  // drop a connection after this long without any packet
+  // 패킷이 하나도 없는 채로 이 시간이 지나면 연결을 끊는다
+  optional uint32 session_timeout_ms = 3;
 }
 
 // The file.
+// 파일 전체다.
 message lobby_config {
   optional log_config log_config = 1;
   optional listen_config listen_config = 2;

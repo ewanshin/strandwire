@@ -13,6 +13,9 @@
 
 // One load-test connection: opens the LOBBY tunnel, logs in, then sends a chat line every second
 // and a NOOP heartbeat every lpn::HEARTBEAT_INTERVAL.
+//
+// 부하 테스트 연결 하나: LOBBY 터널을 열고 로그인한 뒤, 매초 채팅 한 줄과 lpn::HEARTBEAT_INTERVAL마다
+// NOOP 하트비트를 보낸다.
 class dummy_session : public std::enable_shared_from_this<dummy_session>
 {
 public:

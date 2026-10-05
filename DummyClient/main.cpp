@@ -16,6 +16,7 @@ namespace
 {
 
 // Returns the value following `name` in argv, or nullptr. Options are all "--name value".
+// argv에서 `name` 다음에 오는 값을 반환한다. 없으면 nullptr. 옵션은 모두 "--name value" 형식이다.
 const char* option_value(int argc, char* argv[], std::string_view name)
 {
     for (int i = 1; i + 1 < argc; ++i)
@@ -48,6 +49,9 @@ int main(int argc, char* argv[])
 
     // Logging: console only by default. --log-dir turns the daily file log on.
     // Per-session "LOGIN OK" lines are debug level; use --log-level debug to see them.
+    //
+    // 로깅: 기본은 콘솔만. --log-dir로 일별 파일 로그를 켠다.
+    // 세션별 "LOGIN OK" 줄은 debug 레벨이다. 보려면 --log-level debug를 쓴다.
     nslog::configuration log_conf;
     log_conf.module_name = "DummyClient";
     if (const char* v = option_value(argc, argv, "--log-level"))
@@ -59,6 +63,9 @@ int main(int argc, char* argv[])
 
     // One io_context, one thread, N sessions. Sessions are kept in `list` only so their
     // statistics can be read after io.run() returns; the io_context keeps them alive meanwhile.
+    //
+    // io_context 하나, 스레드 하나, 세션 N개. 세션을 `list`에 두는 이유는 io.run()이 반환한 뒤
+    // 통계를 읽기 위해서일 뿐이다. 그동안은 io_context가 세션을 살아 있게 한다.
     asio::io_context io;
     std::vector<std::shared_ptr<dummy_session>> list;
     try
@@ -72,6 +79,7 @@ int main(int argc, char* argv[])
         }
 
         // --duration N stops the whole run after N seconds; 0 runs until Ctrl+C.
+        // --duration N은 N초 후 전체 실행을 멈춘다. 0이면 Ctrl+C까지 실행한다.
         asio::steady_timer stop_timer(io);
         if (duration_sec > 0)
         {
@@ -91,10 +99,15 @@ int main(int argc, char* argv[])
         client_log.stop();
         return 1;
     }
-    client_log.stop(); // flush the log before the statistics line; statics are still alive
+    // flush the log before the statistics line; statics are still alive
+    // 통계 줄보다 먼저 로그를 플러시한다. 정적 객체는 아직 살아 있다
+    client_log.stop();
 
     // The statistics line is the program's output (scripts parse it), so it goes to stdout, not the
     // log. Exit code 0 only if every session logged in: a pass/fail signal for scripts.
+    //
+    // 통계 줄은 프로그램의 출력이므로 (스크립트가 파싱한다) 로그가 아니라 stdout으로 간다.
+    // 종료 코드는 모든 세션이 로그인했을 때만 0이다: 스크립트용 합격/불합격 신호.
     std::size_t logged_in = 0;
     std::size_t chats = 0;
     for (const auto& s : list)

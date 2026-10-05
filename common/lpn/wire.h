@@ -3,6 +3,10 @@
 // Every constant of the LPN wire protocol lives in this file, and the byte layout lives in frame.h.
 // Nothing else in the repository may know a wire value or an offset.
 // Reference and change guide: docs/protocol.md
+//
+// LPN 와이어 프로토콜의 모든 상수는 이 파일에, 바이트 배치는 frame.h에 있다.
+// 저장소의 다른 어느 곳도 와이어 값이나 오프셋을 알아서는 안 된다.
+// 참조와 변경 안내: docs/protocol.md
 
 #include <chrono>
 #include <cstddef>
@@ -14,14 +18,26 @@ namespace lpn
 // L2 type_ : what the packet does. 0 is never sent. Unknown values are ignored by the receiver,
 // which makes new values the extension point (version handshake, compressed packets, ...).
 // connect..shift are tunnel packets: param_ is the tunnel id and a 64-bit server sid follows.
+//
+// L2 type_ : 패킷이 하는 일. 0은 절대 보내지 않는다. 수신자는 모르는 값을 무시하므로
+// 새 값이 확장 지점이 된다 (버전 핸드셰이크, 압축 패킷, ...).
+// connect..shift는 터널 패킷이다. param_은 터널 id이고 64비트 서버 sid가 뒤따른다.
 enum class packet_type : std::uint8_t
 {
-    connect = 1,    // open a tunnel (client -> server) / accepted (server -> client)
-    disconnect = 2, // close a tunnel
-    data = 3,       // payload: uint32 msgid + protobuf body; empty payload = keep-alive
-    failed = 4,     // server -> client: the request on this tunnel failed
-    shift = 5,      // server -> client: the tunnel moved to another server; payload = previous sid
-    heartbeat = 6,  // param_ is a heartbeat_command; no sid
+    // open a tunnel (client -> server) / accepted (server -> client)
+    // 터널 열기 (client -> server) / 수락 (server -> client)
+    connect = 1,
+    disconnect = 2, // close a tunnel / 터널 닫기
+    // payload: uint32 msgid + protobuf body; empty payload = keep-alive
+    // 페이로드: uint32 msgid + protobuf 본문. 빈 페이로드 = keep-alive
+    data = 3,
+    // server -> client: the request on this tunnel failed
+    // server -> client: 이 터널의 요청이 실패했다
+    failed = 4,
+    // server -> client: the tunnel moved to another server; payload = previous sid
+    // server -> client: 터널이 다른 서버로 옮겨졌다. 페이로드 = 이전 sid
+    shift = 5,
+    heartbeat = 6, // param_ is a heartbeat_command; no sid / param_은 heartbeat_command이다. sid 없음
 };
 
 inline constexpr bool is_tunnel_packet(packet_type t)
@@ -30,6 +46,7 @@ inline constexpr bool is_tunnel_packet(packet_type t)
 }
 
 // param_ when type_ == heartbeat. 0 is never sent.
+// type_ == heartbeat일 때의 param_. 0은 절대 보내지 않는다.
 enum class heartbeat_command : std::uint8_t
 {
     ping_req = 1,
@@ -39,6 +56,7 @@ enum class heartbeat_command : std::uint8_t
 };
 
 // Tunnel id: param_ of a tunnel packet. Equals the server type (the `type` part of a sid).
+// 터널 id: 터널 패킷의 param_. 서버 타입(sid의 `type` 부분)과 같다.
 enum class tunnel : std::uint8_t
 {
     unknown = 0,
@@ -51,16 +69,25 @@ enum class tunnel : std::uint8_t
     ai = 14,
 };
 
-inline constexpr std::uint8_t TUNNEL_COUNT = 32; // tunnels per connection (tunnel_id 0..31)
+// tunnels per connection (tunnel_id 0..31)
+// 연결당 터널 수 (tunnel_id 0..31)
+inline constexpr std::uint8_t TUNNEL_COUNT = 32;
 
 // Not visible on the wire unless exceeded. Checked before the body is allocated.
+// 넘지 않는 한 와이어에 보이지 않는다. 본문을 할당하기 전에 검사한다.
 inline constexpr std::uint32_t MAX_FRAME_SIZE = 1024 * 1024;
 
-inline constexpr std::chrono::milliseconds HEARTBEAT_INTERVAL{3000}; // client NOOPREQ period
-inline constexpr std::chrono::milliseconds SESSION_TIMEOUT{5000};    // server drops a silent connection
+// client NOOPREQ period
+// 클라이언트의 NOOPREQ 주기
+inline constexpr std::chrono::milliseconds HEARTBEAT_INTERVAL{3000};
+// server drops a silent connection
+// 서버가 조용한 연결을 끊는 시간
+inline constexpr std::chrono::milliseconds SESSION_TIMEOUT{5000};
 
 // ---- big-endian helpers -------------------------------------------------------------------
 // Assembled byte by byte, so the output is the same on any host endianness.
+//
+// big-endian 헬퍼. 바이트 단위로 조립하므로 호스트의 엔디언과 상관없이 출력이 같다.
 
 inline void put_u16(char* p, std::uint16_t v)
 {

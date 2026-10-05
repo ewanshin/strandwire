@@ -10,6 +10,17 @@
 //    14     N  payload     for type_ == data: uint32 msgid + protobuf body    [L3/L4]
 //
 // All integers are big-endian. For non-tunnel packets the payload starts at offset 6.
+//
+// LPN 패킷 하나의 바이트 배치다. 오프셋을 아는 파일은 이 파일뿐이다.
+//
+//   오프셋 크기 필드
+//     0     4  frame_len   이 필드 뒤에 오는 바이트 수                            [L1 전송]
+//     4     1  type_       packet_type: 동작                                     [L2 LPN 헤더]
+//     5     1  param_      터널 패킷: 터널 id. 하트비트: heartbeat_command
+//     6     8  server_sid  터널 패킷(connect..shift)에만 있다                      [L2b]
+//    14     N  payload     type_ == data일 때: uint32 msgid + protobuf 본문       [L3/L4]
+//
+// 모든 정수는 big-endian이다. 터널 패킷이 아니면 페이로드는 오프셋 6에서 시작한다.
 
 #include <cstddef>
 #include <cstdint>
@@ -27,15 +38,17 @@ struct protocol_error : std::runtime_error
     using std::runtime_error::runtime_error;
 };
 
-inline constexpr std::size_t FRAME_LEN_SIZE = 4;  // L1 frame_len
-inline constexpr std::size_t LPN_HEADER_SIZE = 2; // L2 type_ + param_
+inline constexpr std::size_t FRAME_LEN_SIZE = 4;  // L1 frame_len / L1 프레임 길이
+inline constexpr std::size_t LPN_HEADER_SIZE = 2; // L2 type_ + param_ / L2의 type_와 param_
 inline constexpr std::size_t SERVER_SID_SIZE = 8;
 
 struct frame
 {
     packet_type type = packet_type::data;
-    std::uint8_t param = 0;       // tunnel packet: tunnel id; heartbeat: heartbeat_command
-    std::uint64_t server_sid = 0; // meaningful only for tunnel packets
+    // tunnel packet: tunnel id; heartbeat: heartbeat_command
+    // 터널 패킷: 터널 id. 하트비트: heartbeat_command
+    std::uint8_t param = 0;
+    std::uint64_t server_sid = 0; // meaningful only for tunnel packets / 터널 패킷에서만 의미가 있다
     std::vector<char> payload;
 
     bool is_tunnel() const
@@ -45,10 +58,11 @@ struct frame
     std::uint8_t tunnel_id() const
     {
         return param;
-    } // meaningful only for tunnel packets
+    } // meaningful only for tunnel packets / 터널 패킷에서만 의미가 있다
 };
 
 // type must be one of connect..shift.
+// type은 connect..shift 중 하나여야 한다.
 inline frame make_tunnel(std::uint8_t tunnel_id, packet_type type, std::uint64_t server_sid,
                          std::span<const char> payload = {})
 {
@@ -78,6 +92,7 @@ inline frame make_heartbeat(heartbeat_command cmd)
 }
 
 // Whole packet, frame_len included.
+// frame_len을 포함한 전체 패킷이다.
 inline std::vector<char> encode(const frame& f)
 {
     const bool tunnel = f.is_tunnel();
@@ -102,6 +117,7 @@ inline std::vector<char> encode(const frame& f)
 }
 
 // body = the frame_len bytes that followed the L1 length. Throws protocol_error on any inconsistency.
+// body = L1 길이 뒤에 따라온 frame_len 바이트다. 일관성이 깨지면 protocol_error를 던진다.
 inline frame decode_body(std::span<const char> body)
 {
     if (body.size() < LPN_HEADER_SIZE)
@@ -115,6 +131,7 @@ inline frame decode_body(std::span<const char> body)
     if (f.is_tunnel())
     {
         // The receiver indexes its tunnel table with this value.
+        // 수신자는 이 값으로 터널 테이블을 인덱싱한다.
         if (f.param >= TUNNEL_COUNT)
             throw protocol_error("tunnel id out of range");
         if (body.size() < offset + SERVER_SID_SIZE)

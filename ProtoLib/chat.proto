@@ -7,6 +7,12 @@ package chat;
 //   msgid = FNV-1a32("chat.<message name>")
 // Conventions: snake_case, suffix _req / _res / _noti,
 // and every _res starts with `required int32 error_code_ = 1` holding an nserror.error_code.
+//
+// LOBBY 터널(터널 id 11)의 메시지다.
+// 패키지 이름과 메시지 이름은 와이어 계약의 일부다:
+//   msgid = FNV-1a32("chat.<메시지 이름>")
+// 규약: snake_case, 접미사 _req / _res / _noti,
+// 모든 _res는 nserror.error_code를 담는 `required int32 error_code_ = 1`로 시작한다.
 
 message login_req
 {
@@ -25,12 +31,14 @@ message chat_req
 }
 
 // Acknowledges chat_req to the sender only.
+// chat_req에 대한 응답이다. 보낸 쪽에만 간다.
 message chat_res
 {
     required int32 error_code_ = 1;
 }
 
 // Broadcast to every session that has the LOBBY tunnel open, the sender included.
+// LOBBY 터널을 연 모든 세션에 브로드캐스트한다. 보낸 쪽도 포함한다.
 message chat_noti
 {
     required int32 player_id = 1;

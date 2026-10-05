@@ -22,6 +22,9 @@ constexpr auto LOBBY_ID = static_cast<std::uint8_t>(lpn::tunnel::lobby);
 
 // 0..999 ms before the first chat line, so N sessions started together do not all chat in the
 // same millisecond every second. thread_local because the generator is not thread-safe.
+//
+// 첫 채팅 줄 전에 0..999 ms 기다린다. 함께 시작한 세션 N개가 매초 같은 밀리초에 모두 채팅하지
+// 않게 하기 위해서다. 생성기는 스레드 안전하지 않으므로 thread_local이다.
 std::chrono::milliseconds random_delay()
 {
     thread_local std::mt19937 rng{std::random_device{}()};
@@ -32,6 +35,7 @@ std::chrono::milliseconds random_delay()
 } // namespace
 
 // index becomes the player name "UserName<index>"; main() numbers sessions from 1001.
+// index는 플레이어 이름 "UserName<index>"가 된다. main()은 세션에 1001부터 번호를 매긴다.
 dummy_session::dummy_session(asio::io_context& io, int index)
     : io_(io),
       socket_(io),
@@ -58,6 +62,9 @@ void dummy_session::start(asio::ip::tcp::endpoint target)
 
 // Same flow as NetworkClient: connect -> heartbeat -> CONNECT(LOBBY, anycast) -> read frames.
 // All N sessions share one io_context thread, so nothing here needs synchronisation.
+//
+// NetworkClient와 같은 흐름: 연결 -> 하트비트 -> CONNECT(LOBBY, anycast) -> 프레임 읽기.
+// 세션 N개가 io_context 스레드 하나를 공유하므로 여기서는 동기화가 필요 없다.
 asio::awaitable<void> dummy_session::run(asio::ip::tcp::endpoint target)
 {
     try
@@ -94,6 +101,9 @@ asio::awaitable<void> dummy_session::run(asio::ip::tcp::endpoint target)
 
 // The load itself: one chat_req per second per session, started after login succeeds. With N
 // sessions the server broadcasts N*N chat_noti per second (see chats_received in the statistics).
+//
+// 부하 그 자체: 로그인 성공 후 세션마다 매초 chat_req 하나. 세션이 N개이면 서버는 매초 N*N개의
+// chat_noti를 브로드캐스트한다 (통계의 chats_received 참고).
 asio::awaitable<void> dummy_session::chat_loop()
 {
     try
@@ -112,6 +122,7 @@ asio::awaitable<void> dummy_session::chat_loop()
     catch (const std::system_error&)
     {
         // timer cancelled or socket closed: stop chatting
+        // 타이머가 취소되었거나 소켓이 닫혔다: 채팅을 멈춘다
     }
 }
 
@@ -130,17 +141,22 @@ asio::awaitable<void> dummy_session::heartbeat_loop()
     catch (const std::system_error&)
     {
         // timer cancelled or socket closed
+        // 타이머가 취소되었거나 소켓이 닫혔다
     }
 }
 
 // Synchronous write on the single io thread. A write error throws std::system_error, which the
 // calling coroutine (run or chat_loop) turns into a close.
+//
+// 단일 io 스레드에서의 동기 쓰기. 쓰기 오류는 std::system_error를 던지고, 호출한 코루틴(run 또는
+// chat_loop)이 이를 close로 바꾼다.
 void dummy_session::send_message(const google::protobuf::Message& m)
 {
     lpn::write_frame(socket_, lpn::make_tunnel(LOBBY, lpn::packet_type::data, lobby_sid_, lpn::encode_message(m)));
 }
 
 // Tunnel-level handling; DATA goes to the msgid dispatcher (on_login_res etc.).
+// 터널 수준 처리. DATA는 msgid 디스패처로 간다 (on_login_res 등).
 void dummy_session::on_frame(const lpn::frame& f)
 {
     if (!f.is_tunnel() || f.tunnel_id() != LOBBY_ID)
@@ -181,7 +197,9 @@ void dummy_session::on_login_res(const chat::login_res& res)
         return;
     }
     logged_in_ = true;
-    client_log.debug("LOGIN OK: ID[", res.player_id(), "] Name[", name_, "]"); // one per session: debug level
+    // one per session: debug level
+    // 세션마다 하나: debug 레벨
+    client_log.debug("LOGIN OK: ID[", res.player_id(), "] Name[", name_, "]");
     asio::co_spawn(
         io_,
         [self = shared_from_this()]
@@ -199,12 +217,16 @@ void dummy_session::on_chat_res(const chat::chat_res& res)
 
 // Every broadcast that reaches this session, including its own lines. Summed by main() into the
 // chats_received statistic, which is the throughput number of the load test.
+//
+// 이 세션에 도달한 모든 브로드캐스트, 자기 줄 포함. main()이 chats_received 통계로 합산하며,
+// 이것이 부하 테스트의 처리량 수치이다.
 void dummy_session::on_chat_noti(const chat::chat_noti&)
 {
     ++chats_received_;
 }
 
 // Idempotent. Cancelling the timers ends chat_loop and heartbeat_loop; closing the socket ends run().
+// 멱등이다. 타이머를 취소하면 chat_loop와 heartbeat_loop가 끝나고, 소켓을 닫으면 run()이 끝난다.
 void dummy_session::close()
 {
     std::error_code ec;

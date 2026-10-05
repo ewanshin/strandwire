@@ -2,6 +2,11 @@
 // The expected byte strings here are the wire contract: if one of them has to change, every
 // client in every language has to change with it.
 // See docs/protocol.md.
+//
+// LPN 와이어 포맷의 바이트 단위 테스트.
+// 여기의 기대 바이트 문자열이 와이어 계약이다. 하나라도 바꿔야 한다면 모든 언어의 모든
+// 클라이언트가 함께 바뀌어야 한다.
+// docs/protocol.md를 보라.
 
 #include <array>
 #include <cstdint>
@@ -47,6 +52,7 @@ std::vector<char> bytes(std::initializer_list<int> list)
 }
 
 // Strips the 4-byte frame_len so the rest can be fed to decode_body.
+// 4바이트 frame_len을 떼어내 나머지를 decode_body에 넘길 수 있게 한다.
 std::span<const char> body_of(const std::vector<char>& packet)
 {
     return std::span<const char>(packet).subspan(lpn::FRAME_LEN_SIZE);
@@ -101,6 +107,7 @@ void test_sid()
 void test_msgid_reference_values()
 {
     // Published FNV-1a 32-bit test vectors (offset basis 2166136261, prime 16777619).
+    // 공개된 FNV-1a 32비트 테스트 벡터 (offset basis 2166136261, prime 16777619).
     CHECK(lpn::fnv1a32("") == 0x811C9DC5u);
     CHECK(lpn::fnv1a32("a") == 0xE40C292Cu);
     CHECK(lpn::fnv1a32("foobar") == 0xBF9CF968u);
@@ -125,6 +132,7 @@ void test_golden_heartbeat()
 void test_golden_connect_anycast()
 {
     // type_ = CONNECT (1), param_ = LOBBY tunnel (11 = 0x0B). sid "0.0.11.0".
+    // type_ = CONNECT (1), param_ = LOBBY 터널 (11 = 0x0B). sid "0.0.11.0".
     const auto expected = bytes({0x00, 0x00, 0x00, 0x0A, 0x01, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x00});
     const lpn::sid anycast{0, 0, 11, 0};
     const auto packet = lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::connect, anycast.value()));
@@ -142,13 +150,16 @@ void test_golden_data()
 {
     // DATA on LOBBY to server "1.2.11.3" carrying chat.login_req{name="ab"}.
     // protobuf body: field 1, wire type 2 -> 0x0A, length 2, 'a', 'b'.
+    //
+    // 서버 "1.2.11.3"으로 보내는 LOBBY DATA. chat.login_req{name="ab"}를 담는다.
+    // protobuf 본문: 필드 1, 와이어 타입 2 -> 0x0A, 길이 2, 'a', 'b'.
     chat::login_req req;
     req.set_name("ab");
     const std::vector<char> payload = lpn::encode_message(req);
 
     const std::uint32_t id = lpn::fnv1a32("chat.login_req");
-    std::vector<char> expected = bytes({0x00, 0x00, 0x00, 0x12,                           // frame_len = 2 + 8 + 8 = 18
-                                        0x03, 0x0B,                                       // data, tunnel 11
+    std::vector<char> expected = bytes({0x00, 0x00, 0x00, 0x12, // frame_len = 2 + 8 + 8 = 18
+                                        0x03, 0x0B,             // data, tunnel 11 / DATA, 터널 11
                                         0x00, 0x01, 0x00, 0x02, 0x00, 0x0B, 0x00, 0x03}); // sid 1.2.11.3
     expected.push_back(static_cast<char>(id >> 24));
     expected.push_back(static_cast<char>(id >> 16));
@@ -161,7 +172,9 @@ void test_golden_data()
     const auto packet =
         lpn::encode(lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::data, target.value(), payload));
     CHECK(packet == expected);
-    CHECK(packet.size() == 22); // 18 bytes of fixed overhead + 4 bytes of protobuf
+    // 18 bytes of fixed overhead + 4 bytes of protobuf
+    // 고정 오버헤드 18바이트 + protobuf 4바이트
+    CHECK(packet.size() == 22);
 
     const lpn::frame f = lpn::decode_body(body_of(packet));
     CHECK(f.type == lpn::packet_type::data);
@@ -169,6 +182,7 @@ void test_golden_data()
 }
 
 // "00 1F 4D" -> bytes. Spaces and '|' are ignored so the strings can be pasted from docs/protocol.md.
+// "00 1F 4D" -> 바이트. 공백과 '|'는 무시하므로 docs/protocol.md의 문자열을 그대로 붙여 넣을 수 있다.
 std::vector<char> from_hex(std::string_view text)
 {
     std::vector<char> out;
@@ -199,6 +213,9 @@ std::vector<char> from_hex(std::string_view text)
 
 // Every byte example in docs/protocol.md section 11, produced by the real encoder.
 // If this fails, either the wire format changed or the document is wrong: fix both together.
+//
+// docs/protocol.md 11절의 모든 바이트 예제를 실제 인코더로 만들어 본다.
+// 실패하면 와이어 포맷이 바뀌었거나 문서가 틀린 것이다. 둘을 함께 고친다.
 void test_documented_examples()
 {
     const std::uint64_t anycast = lpn::sid{0, 0, 11, 0}.value();
@@ -250,6 +267,7 @@ void test_documented_examples()
           from_hex("00 00 00 0A | 04 | 0D | 00 00 00 00 00 0D 00 00"));
 
     // msgid table in section 8
+    // 8절의 msgid 표
     CHECK(lpn::msgid_of<chat::login_req>() == 2267621343u);
     CHECK(lpn::msgid_of<chat::login_res>() == 2301176581u);
     CHECK(lpn::msgid_of<chat::chat_req>() == 1118036162u);
@@ -260,6 +278,7 @@ void test_documented_examples()
 void test_decode_rejections()
 {
     // shorter than the LPN header
+    // LPN 헤더보다 짧다
     CHECK(throws_protocol_error(
         []
         {
@@ -271,24 +290,28 @@ void test_decode_rejections()
             lpn::decode_body(std::vector<char>{});
         }));
     // tunnel packet without room for the 8-byte sid
+    // 8바이트 sid가 들어갈 자리가 없는 터널 패킷
     CHECK(throws_protocol_error(
         []
         {
             lpn::decode_body(bytes({0x01, 0x0B, 0x00, 0x00, 0x00, 0x00}));
         }));
     // tunnel id beyond the tunnel table (the receiver indexes an array with it)
+    // 터널 테이블 범위를 넘는 터널 id (수신 측이 이 값으로 배열을 인덱싱한다)
     CHECK(throws_protocol_error(
         []
         {
             lpn::decode_body(bytes({0x03, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00, 0x01}));
         }));
     // a heartbeat is not a tunnel packet
+    // 하트비트는 터널 패킷이 아니다
     CHECK(throws_protocol_error(
         []
         {
             lpn::make_tunnel(lpn::tunnel::lobby, lpn::packet_type::heartbeat, 0);
         }));
     // tunnel id out of range when building
+    // 만들 때 터널 id가 범위를 벗어난다
     CHECK(throws_protocol_error(
         []
         {
@@ -296,12 +319,14 @@ void test_decode_rejections()
         }));
 
     // unknown packet types decode fine; the receiver decides to ignore them
+    // 알 수 없는 패킷 타입은 정상적으로 디코딩된다. 무시할지는 수신 측이 정한다
     const lpn::frame f = lpn::decode_body(bytes({0x7F, 0x01, 0x55}));
     CHECK(static_cast<std::uint8_t>(f.type) == 0x7F);
     CHECK(f.payload.size() == 1);
 }
 
 // Connected loopback socket pair on one io_context.
+// 하나의 io_context 위에 연결된 루프백 소켓 쌍.
 struct socket_pair
 {
     asio::io_context io;
@@ -346,6 +371,7 @@ void test_frame_io_rejects_oversize()
 {
     socket_pair sp;
     // frame_len = MAX_FRAME_SIZE + 1. Nothing else is sent: the reader must refuse before allocating.
+    // frame_len = MAX_FRAME_SIZE + 1. 그 밖에는 아무것도 보내지 않는다. 읽는 쪽은 할당하기 전에 거부해야 한다.
     char len_buf[4];
     lpn::put_u32(len_buf, lpn::MAX_FRAME_SIZE + 1);
     asio::write(sp.client, asio::buffer(len_buf));
@@ -390,8 +416,8 @@ void on_login(test_ctx& ctx, const chat::login_req& m)
 void test_dispatcher()
 {
     lpn::message_dispatcher<test_ctx> d;
-    d.regist(&on_login);          // free function
-    d.regist(&test_ctx::on_chat); // member function
+    d.regist(&on_login);          // free function / 자유 함수
+    d.regist(&test_ctx::on_chat); // member function / 멤버 함수
     test_ctx ctx;
 
     chat::login_req login;
@@ -408,6 +434,7 @@ void test_dispatcher()
     CHECK(ctx.last_text == "hi");
 
     // no handler for chat_noti
+    // chat_noti에는 핸들러가 없다
     chat::chat_noti noti;
     noti.set_player_id(1);
     noti.set_name("n");
@@ -415,13 +442,16 @@ void test_dispatcher()
     CHECK(d.dispatch(ctx, lpn::encode_message(noti)) == lpn::dispatch_result::unknown_msgid);
 
     // payload smaller than a msgid
+    // msgid보다 작은 페이로드
     CHECK(d.dispatch(ctx, bytes({0x01, 0x02})) == lpn::dispatch_result::too_short);
 
     // required field missing: login_req without a name serializes to an empty body
+    // 필수 필드 누락: 이름 없는 login_req는 빈 본문으로 직렬화된다
     chat::login_req empty;
     CHECK(d.dispatch(ctx, lpn::encode_message(empty)) == lpn::dispatch_result::not_initialized);
 
     // garbage body: field 1 declared as length-delimited with a length that runs past the end
+    // 쓰레기 본문: 필드 1을 길이 구분 타입으로 선언했는데 길이가 끝을 넘어간다
     std::vector<char> garbage(lpn::MSGID_SIZE);
     lpn::put_u32(garbage.data(), lpn::fnv1a32("chat.login_req"));
     garbage.push_back(0x0A);
@@ -429,6 +459,7 @@ void test_dispatcher()
     CHECK(d.dispatch(ctx, garbage) == lpn::dispatch_result::parse_error);
 
     // registering the same message twice is a programming error
+    // 같은 메시지를 두 번 등록하는 것은 프로그래밍 오류다
     bool threw = false;
     try
     {
@@ -445,15 +476,19 @@ void test_utf8_validation()
 {
     CHECK(utf8::is_valid(""));
     CHECK(utf8::is_valid("hello"));
-    CHECK(utf8::is_valid("\xED\x95\x9C\xEA\xB8\x80")); // "한글" in UTF-8
-    CHECK(utf8::is_valid("\xF0\x9F\x98\x80"));         // U+1F600, 4-byte sequence
-    CHECK(!utf8::is_valid("\xC7\xD1\xB1\xDB"));        // "한글" in CP949: what a Korean console sends
-    CHECK(!utf8::is_valid("\xA4\xC3\xA4\xBF"));        // CP949 jamo, as typed in the bug report
-    CHECK(!utf8::is_valid("\x80"));                    // stray continuation byte
-    CHECK(!utf8::is_valid("\xE3\x81"));                // truncated 3-byte sequence
-    CHECK(!utf8::is_valid("\xC0\xAF"));                // overlong encoding of '/'
-    CHECK(!utf8::is_valid("\xED\xA0\x80"));            // UTF-16 surrogate U+D800
-    CHECK(!utf8::is_valid("\xF4\x90\x80\x80"));        // above U+10FFFF
+    CHECK(utf8::is_valid("\xED\x95\x9C\xEA\xB8\x80")); // "한글" in UTF-8 / UTF-8의 "한글"
+    CHECK(utf8::is_valid("\xF0\x9F\x98\x80"));         // U+1F600, 4-byte sequence / U+1F600, 4바이트 시퀀스
+    // "한글" in CP949: what a Korean console sends
+    // CP949의 "한글": 한국어 콘솔이 보내는 바이트
+    CHECK(!utf8::is_valid("\xC7\xD1\xB1\xDB"));
+    // CP949 jamo, as typed in the bug report
+    // CP949 자모, 버그 보고서에 입력한 그대로
+    CHECK(!utf8::is_valid("\xA4\xC3\xA4\xBF"));
+    CHECK(!utf8::is_valid("\x80"));             // stray continuation byte / 홀로 남은 연속 바이트
+    CHECK(!utf8::is_valid("\xE3\x81"));         // truncated 3-byte sequence / 잘린 3바이트 시퀀스
+    CHECK(!utf8::is_valid("\xC0\xAF"));         // overlong encoding of '/' / '/'의 오버롱 인코딩
+    CHECK(!utf8::is_valid("\xED\xA0\x80"));     // UTF-16 surrogate U+D800 / UTF-16 서로게이트 U+D800
+    CHECK(!utf8::is_valid("\xF4\x90\x80\x80")); // above U+10FFFF / U+10FFFF 초과
     CHECK(!utf8::is_valid("\xFF"));
 }
 

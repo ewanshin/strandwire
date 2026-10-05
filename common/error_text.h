@@ -8,6 +8,14 @@
 // as mojibake in the server log as soon as the console was switched to UTF-8.
 //
 //   netsys::describe(ec)  ->  "connection reset by peer (system:10054)"
+//
+// std::error_code를 로케일과 무관한 텍스트로 바꾼다.
+//
+// system 카테고리의 std::error_code::message()는 OS가 사용자의 언어와 ANSI 코드 페이지로 만든다
+// (한국어 Windows에서는 CP949 한글). 이는 이 프로젝트의 두 규칙, 로그 텍스트는 영어이고 콘솔에 쓰는
+// 모든 것은 UTF-8이라는 규칙을 깬다. 콘솔을 UTF-8로 바꾸자마자 서버 로그에 깨진 글자로 나타났다.
+//
+//   netsys::describe(ec)  ->  "connection reset by peer (system:10054)"
 
 #include <string>
 #include <system_error>

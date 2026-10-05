@@ -3,6 +3,10 @@
 // Strict UTF-8 validation. protobuf `string` fields must be UTF-8; protobuf itself only logs an
 // error for proto2 messages and lets the bytes through, so the server checks text it is going to
 // store or broadcast.
+//
+// 엄격한 UTF-8 검증이다. protobuf `string` 필드는 UTF-8이어야 한다. protobuf 자체는 proto2 메시지에서
+// 오류를 로그로만 남기고 바이트를 그대로 통과시키므로, 서버가 저장하거나 브로드캐스트할 텍스트를
+// 직접 검사한다.
 
 #include <cstddef>
 #include <cstdint>
@@ -13,6 +17,9 @@ namespace utf8
 
 // Rejects truncated sequences, stray continuation bytes, overlong encodings, UTF-16 surrogates
 // (U+D800..U+DFFF) and code points above U+10FFFF.
+//
+// 잘린 시퀀스, 홀로 있는 연속 바이트, overlong 인코딩, UTF-16 서로게이트(U+D800..U+DFFF),
+// U+10FFFF를 넘는 코드 포인트를 거부한다.
 constexpr bool is_valid(std::string_view s)
 {
     std::size_t i = 0;
@@ -48,7 +55,9 @@ constexpr bool is_valid(std::string_view s)
         }
         else
         {
-            return false; // continuation byte or 0xF8..0xFF as a lead byte
+            // continuation byte or 0xF8..0xFF as a lead byte
+            // 선두 바이트가 연속 바이트거나 0xF8..0xFF다
+            return false;
         }
         if (i + len > n)
             return false;

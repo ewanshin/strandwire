@@ -11,6 +11,16 @@ package nserror;
 //   300-399  item
 //   400-499  quest
 //   500-599  region
+//
+// 모든 *_res 메시지의 첫 필드(error_code_)에 실리는 결과 코드다.
+// 범위: 도메인마다 100개.
+//   0        성공
+//   1-99     시스템
+//   100-199  auth
+//   200-299  lobby (채팅은 여기에 있다)
+//   300-399  item
+//   400-499  quest
+//   500-599  region
 enum error_code
 {
     SUCCESS = 0;
@@ -19,6 +29,6 @@ enum error_code
 
     NOT_LOGGED_IN = 200;
     ALREADY_LOGGED_IN = 201;
-    INVALID_NAME = 202;  // empty, too long, or not valid UTF-8
-    INVALID_TEXT = 203;  // chat text is not valid UTF-8
+    INVALID_NAME = 202;  // empty, too long, or not valid UTF-8 / 비어 있거나, 너무 길거나, 올바른 UTF-8이 아니다
+    INVALID_TEXT = 203;  // chat text is not valid UTF-8 / 채팅 텍스트가 올바른 UTF-8이 아니다
 }

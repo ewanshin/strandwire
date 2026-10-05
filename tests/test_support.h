@@ -6,6 +6,13 @@
 // - On Windows no dialog ever pops up: CRT assertions, abort() and unhandled exceptions are
 //   written to stderr and the process exits with a non-zero code. A test must never block a
 //   build or an unattended run waiting for someone to click a button.
+//
+// 테스트 실행 파일이 공유한다. main()의 첫 줄에서 test_support::init()을 부른다.
+//
+// - stdout/stderr는 버퍼링하지 않으므로 크래시 직전의 마지막 로그 줄이 보인다.
+// - Windows에서는 어떤 대화 상자도 뜨지 않는다. CRT 단언, abort(), 처리되지 않은 예외는
+//   stderr에 쓰고 프로세스는 0이 아닌 코드로 끝난다. 테스트가 누군가 버튼을 누르기를 기다리며
+//   빌드나 무인 실행을 막아서는 안 된다.
 
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +33,7 @@ inline LONG WINAPI on_unhandled_exception(EXCEPTION_POINTERS* info)
     std::fprintf(stderr, "\nFATAL: unhandled SEH exception 0x%08lX at address %p\n",
                  static_cast<unsigned long>(rec->ExceptionCode), rec->ExceptionAddress);
     std::fflush(stderr);
-    return EXCEPTION_EXECUTE_HANDLER; // terminate without the WER dialog
+    return EXCEPTION_EXECUTE_HANDLER; // terminate without the WER dialog / WER 대화 상자 없이 종료한다
 }
 #endif
 
