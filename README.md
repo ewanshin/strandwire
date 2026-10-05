@@ -70,9 +70,11 @@ Documents
 
 | Document | Contents |
 |---|---|
+| `docs/architecture.md` | Projects, wire protocol summary, thread model, session and server lifecycles, tests |
+| `docs/build.md` | Building on each OS (CMake, Visual Studio solution, protobuf), running the executables |
 | `docs/protocol.md` | Protocol: byte layout, messages, examples, design decisions, change guide |
 | `docs/specs/2026-09-17-asio-cmake-migration-design.md` | asio/CMake migration design and the alternatives considered |
-| `CLAUDE.md` | Development guide |
+| `CLAUDE.md` | Rules for changing the code: conventions, formatting, lifecycle names, change procedures |
 
 Dependencies
 ---

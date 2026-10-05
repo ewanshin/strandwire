@@ -396,7 +396,7 @@ W2 (duplicate length field) was removed; only its number remains.
 1. Pick the item in 15.1 and check "change together".
 2. Edit `wire.h` or `frame.h`. If another file needs changing, wire knowledge has leaked; move it into `common/lpn/` first.
 3. Confirm that `wire_test` fails, then update its expected bytes.
-4. Update the tables and section 11 examples in this document, and the wire protocol section of `CLAUDE.md`.
+4. Update the tables and section 11 examples in this document, and the wire protocol section of `docs/architecture.md`.
 5. Apply the same change to any non-C++ client.
 
 ## 16. protobuf choices

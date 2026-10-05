@@ -71,9 +71,11 @@ DummyClient --ip 127.0.0.1 --port 10000 --session 100 --duration 10
 
 | 문서 | 내용 |
 |---|---|
+| `docs/architecture.md` | 프로젝트 구성, 와이어 프로토콜 요약, 스레드 모델, 세션과 서버 생명주기, 테스트 |
+| `docs/build.md` | OS별 빌드(CMake, Visual Studio 솔루션, protobuf)와 실행 파일 사용법 |
 | `docs/protocol.md` | 프로토콜: 바이트 배치, 메시지, 예시, 설계 결정, 변경 가이드 |
 | `docs/specs/2026-09-17-asio-cmake-migration-design.md` | asio/CMake 이식 설계와 검토한 대안 |
-| `CLAUDE.md` | 개발 안내 |
+| `CLAUDE.md` | 코드 변경 규칙: 규약, 포매팅, 생명주기 이름, 변경 절차 |
 
 의존성
 ---

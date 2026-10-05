@@ -4,7 +4,7 @@
 - Status: approved and implemented (2026-09-17, verified on Windows). Later revisions are dated inline.
 - Scope: the whole repository
 - This document records the design at the time of the migration. The current structure is described in
-  `CLAUDE.md`, the current protocol in `docs/protocol.md`.
+  `docs/architecture.md`, the current protocol in `docs/protocol.md`.
 
 ## 1. Goal and scope
 
@@ -92,7 +92,7 @@ ctest --preset windows-msvc
 ### 4.1 Visual Studio solution (Windows, hand-maintained)
 
 - Root `strandwire.sln`. Six projects at migration time: `ServerLib` (static lib), `NetworkServer`, `NetworkClient`,
-  `DummyClient`, `framing_test`, `smoke_test`. Eight today (`CLAUDE.md`).
+  `DummyClient`, `framing_test`, `smoke_test`. Nine today (`docs/architecture.md`).
 - Configurations `Debug|x64`, `Release|x64`. Toolset v143 (VS 2022). vcxproj and `.filters` sit in each source folder.
 - Shared settings live in two props files. Values are kept equal to the root `CMakeLists.txt`.
   - `strandwire.config.props`: toolset, character set, debug runtime. Values that must be set before `Microsoft.Cpp.props`.
@@ -189,7 +189,7 @@ The thread and ownership models still hold. The dispatcher (6.4) and packet deta
    Further calls do nothing.
 5. Send queue limit `MAX_SEND_QUEUE = 256`. Exceeding it means a slow consumer: `close`.
 
-`write_loop` was fixed on 2026-09-19: the buffer is popped before awaiting (send-queue rule in `CLAUDE.md`).
+`write_loop` was fixed on 2026-09-19: the buffer is popped before awaiting (send-queue rule in `docs/architecture.md`).
 
 ### 6.4 Dispatcher (superseded)
 
@@ -243,7 +243,7 @@ Design at migration time. Today the msgid dispatcher in `common/lpn/dispatcher.h
   5. `stop()`.
 - Hang protection: client `io_context::run_for(15s)`, session-count polling timeout (5s).
 
-Current test contents: the `wire_test` and `smoke_test` sections of `CLAUDE.md`.
+Current test contents: the `wire_test` and `smoke_test` sections of `docs/architecture.md`.
 
 ## 10. Documentation update
 
