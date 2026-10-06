@@ -4,7 +4,7 @@
 
 코드가 무엇이고 어떻게 도는지: 폴더와 빌드 타깃, 각 프로젝트, 와이어 프로토콜 요약, 스레드 모델, 세션과 서버의
 생명주기, 테스트가 확인하는 것. 프로토콜 자체는 `docs/protocol.ko.md`에 정의되어 있다. 빌드와 실행은
-`docs/build.ko.md`, 코드 변경 규칙은 `CLAUDE.ko.md`에 있다.
+`docs/build.ko.md`, 코드 변경 규칙은 `CLAUDE.md`에 있다.
 
 ## 개요
 
@@ -327,7 +327,7 @@ true를 돌려줄 때 `<method> success`를 남긴다(마지막은 `start succes
 - 사람 입력이나 이름을 다루는 새 실행 파일은 같은 헬퍼를 쓴다.
 
 와이어 상수는 `common/lpn/wire.h`에만, 바이트 배치는 `common/lpn/frame.h`에만 있다. 와이어를 바꾸거나 메시지를
-추가하는 법은 `CLAUDE.ko.md` "변경 절차"에 있다.
+추가하는 법은 `CLAUDE.md` "변경 절차"에 있다.
 
 ### `common/lpn/`의 파일
 

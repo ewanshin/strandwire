@@ -37,11 +37,11 @@ long long ms_since(std::chrono::steady_clock::time_point t0)
 // The logger exists only between the logger phase's up and down. Everything the app has to say
 // before that (config) or after it (the last phases going down) goes to the console instead, so
 // the start and the end of the process are never silent. This is the one place that writes a
-// log-like line to std::cout/std::cerr; see CLAUDE.md "Logging and strings".
+// log-like line to std::cout/std::cerr; see CLAUDE.md "로그와 문자열".
 //
 // 로거는 logger 단계의 up과 down 사이에만 존재한다. 그 전(설정)이나 그 후(마지막 단계들이 내려갈 때)에
 // 앱이 할 말은 대신 콘솔로 간다. 그래서 프로세스의 시작과 끝이 조용히 지나가지 않는다.
-// 로그 같은 줄을 std::cout/std::cerr에 쓰는 곳은 여기뿐이다. CLAUDE.md "Logging and strings" 참고.
+// 로그 같은 줄을 std::cout/std::cerr에 쓰는 곳은 여기뿐이다. CLAUDE.md "로그와 문자열" 참고.
 template <class... Args>
 void note(const Args&... args)
 {

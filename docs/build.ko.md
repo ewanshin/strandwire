@@ -6,7 +6,7 @@ OS별로 CMake 또는 Visual Studio 솔루션으로 빌드하는 법과 서버, 
 타깃이 무엇인지는 `docs/architecture.ko.md`에 있다.
 
 **두 빌드 체계를 모두 유지한다.** CMake 프리셋과 손으로 관리하는 Visual Studio 솔루션이다. 빌드에 영향을 주는
-변경은 둘 다에 넣는다(`CLAUDE.ko.md` "규칙").
+변경은 둘 다에 넣는다(`CLAUDE.md` "규칙").
 
 ## 빌드
 
@@ -122,7 +122,7 @@ protobuf:
 - `ServerLib`의 `ProtoLib` 참조는 빌드 순서 때문이다(`LinkLibraryDependencies=false`). 라이브러리는 합쳐지지 않는다.
 
 소스 파일을 추가하거나 지우면 세 곳(`CMakeLists.txt`, `.vcxproj`, `.vcxproj.filters`)을 건드린다. 어긋나면 CTest
-`check_vs_sync`가 실패한다. 절차는 `CLAUDE.ko.md` "변경 절차"에 있다.
+`check_vs_sync`가 실패한다. 절차는 `CLAUDE.md` "변경 절차"에 있다.
 
 ## 실행
 

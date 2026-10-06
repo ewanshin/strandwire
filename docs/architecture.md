@@ -340,7 +340,7 @@ section only states what the server code relies on.
 - A new executable that handles human input or names uses the same helpers.
 
 Wire constants live only in `common/lpn/wire.h` and the byte layout only in `common/lpn/frame.h`. How to change
-the wire or add a message is in `CLAUDE.md` "Change procedures".
+the wire or add a message is in `CLAUDE.md` "변경 절차" (Korean only).
 
 ### Files in `common/lpn/`
 

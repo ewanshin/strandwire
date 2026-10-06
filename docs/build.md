@@ -6,7 +6,7 @@ How to build on each OS with CMake or the Visual Studio solution, and how to run
 and the tests. What the targets are is in `docs/architecture.md`.
 
 **Both build systems are maintained**, the CMake presets and the hand-maintained Visual Studio solution. Every change
-that affects the build goes into both (`CLAUDE.md` "Rules").
+that affects the build goes into both (`CLAUDE.md` "규칙", Korean only).
 
 ## Build
 
@@ -122,7 +122,7 @@ References:
 - `ServerLib`'s reference to `ProtoLib` is for build order only (`LinkLibraryDependencies=false`); the libs are not merged.
 
 Adding or removing a source file touches three places (`CMakeLists.txt`, `.vcxproj`, `.vcxproj.filters`); the CTest
-`check_vs_sync` fails on drift. The procedure is in `CLAUDE.md` "Change procedures".
+`check_vs_sync` fails on drift. The procedure is in `CLAUDE.md` "변경 절차" (Korean only).
 
 ## Run
 

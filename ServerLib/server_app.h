@@ -1,7 +1,7 @@
 #pragma once
 
 // The server process as a sequence of phases, grouped into the project's lifecycle methods
-// (CLAUDE.md "Lifecycle method names"):
+// (CLAUDE.md "생명주기 메서드 이름"):
 //
 //   pre_init_instance   1. config       take the config the caller loaded (load_config in main)
 //                       2. logger       start server_log as configured
@@ -18,7 +18,7 @@
 // Phases 3 and 4 are empty today: the component interface is the hook for later work.
 //
 // 서버 프로세스를 단계의 순서로 본 것이다. 단계는 프로젝트의 생명주기 메서드로 묶인다
-// (CLAUDE.md "Lifecycle method names"):
+// (CLAUDE.md "생명주기 메서드 이름"):
 //
 //   pre_init_instance   1. config       호출자가 로드한 설정을 받는다 (main의 load_config)
 //                       2. logger       설정대로 server_log를 시작한다
