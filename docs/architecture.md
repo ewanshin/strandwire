@@ -420,6 +420,22 @@ removes the session from the map. The object is freed once the map and the runni
 - One server plays both gateway and LOBBY backend. Splitting the gateway into its own process and designing the
   server-to-server segment come later (issue #13). A gateway per region is issue #19; the sid's `idc` part is kept for it.
 
+### Lifecycle method names
+
+Every object that has a lifecycle uses these names, always in pairs:
+
+| Method | Meaning | Undone by |
+|---|---|---|
+| `pre_init_instance` | What everything else needs first: take and validate the config, start the logger, check dependencies | `exit_instance` |
+| `init_instance` | Acquire resources: DB connections, assets, register handlers, bind/listen sockets (no accept yet) | `exit_instance` |
+| `start` | Begin running: threads, accept, timers, connections to other servers | `stop` |
+
+- `exit_instance` releases what `init_instance` and `pre_init_instance` acquired, in reverse; `stop` ends
+  what `start` began (and joins). Teardown runs in reverse order of set-up.
+- Connection objects (`session`, the client sessions) use `start`/`close`: closing a socket is the
+  domain term and ends everything the session started.
+- Exit codes are small positive numbers, one per lifecycle method that can fail (1 config/logger, 2 init, 3 start).
+
 ### Clients
 
 - Both run three coroutines on a single-threaded `io_context`: receive loop, heartbeat, and (DummyClient) a chat timer.
