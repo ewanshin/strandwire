@@ -4,7 +4,20 @@
 
 코드가 무엇이고 어떻게 도는지: 폴더와 빌드 타깃, 각 프로젝트, 와이어 프로토콜 요약, 스레드 모델, 세션과 서버의
 생명주기, 테스트가 확인하는 것. 프로토콜 자체는 `docs/protocol.ko.md`에 정의되어 있다. 빌드와 실행은
-`docs/build.ko.md`, 코드 변경 규칙은 `CLAUDE.md`에 있다.
+`docs/build.ko.md`에 있다.
+
+## 현재 상태
+
+`v0.3.0`, 2026-09-22.
+
+- `v0.2.0`(2026-09-19): asio + CMake 이식, LPN 프레이밍 + protobuf 프로토콜.
+- `v0.3.0`(2026-09-22): 중복 길이 필드 제거, `type_`를 값 하나당 연산 하나로 평탄화(와이어 변경).
+- 빌드, 테스트, 실행, Windows 클라이언트 교차 접속을 세 OS 모두에서 검증
+  (와이어 변경 뒤: Windows와 Linux 2026-09-20, macOS 2026-09-22).
+  - Windows: MSVC. CMake와 VS 솔루션 둘 다.
+  - Linux: WSL2 Ubuntu 22.04, g++ 11.4, CMake 3.22.
+  - macOS: 27.0 arm64, Apple clang 21, CMake 3.31.
+- 예정된 클라이언트: 순수 C++(있음), Godot, 어쩌면 Unity. Godot/cocos2d-x 클라이언트는 아직 없다.
 
 ## 개요
 
@@ -327,7 +340,7 @@ true를 돌려줄 때 `<method> success`를 남긴다(마지막은 `start succes
 - 사람 입력이나 이름을 다루는 새 실행 파일은 같은 헬퍼를 쓴다.
 
 와이어 상수는 `common/lpn/wire.h`에만, 바이트 배치는 `common/lpn/frame.h`에만 있다. 와이어를 바꾸거나 메시지를
-추가하는 법은 `CLAUDE.md` "변경 절차"에 있다.
+추가하는 법은 아래 "변경 절차"에 있다.
 
 ### `common/lpn/`의 파일
 
@@ -422,3 +435,36 @@ ctest --preset windows-msvc -R smoke_test --output-on-failure  # one
   - Windows에서 CRT 단언, `abort`, 접근 위반이 **대화상자 없이** stderr로 간다.
 - 간헐적 실패는 실행 파일을 수십 번 돌리며 실패 횟수를 세어 조사한다
   (`$LASTEXITCODE`를 모으는 PowerShell `for` 루프).
+
+### 대화형 경로
+
+자동 테스트가 덮지 않는다. 테스트의 stdin이 콘솔이 아니기 때문이다.
+
+- Windows 콘솔에 한국어 입력(`console::read_line`): 사용자가 확인(2026-09-19).
+- Windows 서버에서 ESC(`console::key_watcher`): 사용자가 확인(2026-09-19).
+  ESC → 세션 종료 → `server stopped` → 종료 코드 0.
+- `common/console.h`의 POSIX 경로(termios, poll 기반 ESC 감시)는 Linux와 macOS에서 컴파일만 했다.
+  실제 키 입력으로는 써 보지 않았다. 자동 실행은 stdin이 콘솔이 아니라서 비활성 상태로 남는다.
+
+## 변경 절차
+
+**메시지 추가.** msgid는 자동이다.
+
+1. `ProtoLib/chat.proto`에 정의한다.
+2. `ServerLib/lobby_service.cpp`에 `void on_xxx(session&, const chat::xxx&)`를 쓰고 `register_lobby_handlers`에
+   `regist` 한 줄을 추가한다.
+3. 클라이언트에서는 생성자에 `lobby_.regist(&client_session::on_xxx)`.
+4. `docs/protocol.ko.md` 8절을 갱신한다(msgid 값 포함).
+
+**와이어 변경**(`docs/protocol.ko.md` 15.3절). 모든 클라이언트가 함께 바뀌어야 한다.
+
+1. `wire.h`/`frame.h`를 고친다.
+2. `wire_test`가 실패하는 것을 확인한 뒤 기대 바이트를 고친다.
+3. `docs/protocol.ko.md`의 표와 11절 예시, 이 문서의 와이어 프로토콜 절을 고친다.
+   `wire_test`의 `test_documented_examples`가 예시를 구현과 대조한다.
+
+**시작 단계 변경.** `ServerLib/server_app.cpp`의 `PHASES[]`에 행 하나, 멤버 함수 둘, 같은 위치의 `phase_id` 값
+하나를 추가한다. `static_assert`가 표와 enum의 크기를 같게 지킨다. 이 문서의 단계 표와
+`tests/app_test.cpp`의 기대 trace를 갱신한다.
+
+소스 파일 추가, `.proto` 추가, 변경 검증: `docs/build.ko.md`의 "변경 절차".

@@ -4,8 +4,20 @@ English | [한국어](architecture.ko.md)
 
 What the code is and how it runs: the folders and build targets, each project, the wire protocol summary,
 the thread model, the session and server lifecycles, and what the tests check. The protocol itself is
-specified in `docs/protocol.md`; how to build and run is in `docs/build.md`; the rules for changing the code are
-in `CLAUDE.md`.
+specified in `docs/protocol.md`; how to build and run is in `docs/build.md`.
+
+## Current state
+
+`v0.3.0`, 2026-09-22.
+
+- `v0.2.0` (2026-09-19): asio + CMake migration, LPN framing + protobuf protocol.
+- `v0.3.0` (2026-09-22): the duplicate length field was removed and `type_` was flattened to one operation per value (wire change).
+- Build, tests, execution and a Windows-client cross-connection were verified on all three OSes
+  (after the wire change: Windows and Linux 2026-09-20, macOS 2026-09-22).
+  - Windows: MSVC. Both CMake and the VS solution.
+  - Linux: WSL2 Ubuntu 22.04, g++ 11.4, CMake 3.22.
+  - macOS: 27.0 arm64, Apple clang 21, CMake 3.31.
+- Planned clients: pure C++ (present), Godot, maybe Unity. No Godot/cocos2d-x client yet.
 
 ## Overview
 
@@ -340,7 +352,7 @@ section only states what the server code relies on.
 - A new executable that handles human input or names uses the same helpers.
 
 Wire constants live only in `common/lpn/wire.h` and the byte layout only in `common/lpn/frame.h`. How to change
-the wire or add a message is in `CLAUDE.md` "변경 절차" (Korean only).
+the wire or add a message is in "Change procedures" below.
 
 ### Files in `common/lpn/`
 
@@ -435,4 +447,37 @@ ctest --preset windows-msvc -R smoke_test --output-on-failure  # one
   - On Windows, CRT assertions, `abort` and access violations go to stderr **without a dialog**.
 - Investigate intermittent failures by running the executable dozens of times and counting failures
   (a PowerShell `for` loop collecting `$LASTEXITCODE`).
+
+### Interactive paths
+
+Not covered by the automated tests, because their stdin is not a console.
+
+- Typing Korean into the Windows console (`console::read_line`): confirmed by the user (2026-09-19).
+- ESC on the Windows server (`console::key_watcher`): confirmed by the user (2026-09-19).
+  ESC → sessions closed → `server stopped` → exit code 0.
+- The POSIX path of `common/console.h` (termios, poll-based ESC watcher) has only been compiled on Linux and macOS.
+  It has not been exercised with real key presses; automated runs have a non-console stdin, so it stays inactive.
+
+## Change procedures
+
+**Adding a message.** The msgid is automatic.
+
+1. Define it in `ProtoLib/chat.proto`.
+2. Write `void on_xxx(session&, const chat::xxx&)` in `ServerLib/lobby_service.cpp` and add one `regist` line
+   to `register_lobby_handlers`.
+3. In the clients, `lobby_.regist(&client_session::on_xxx)` in the constructor.
+4. Update `docs/protocol.md` section 8 (including the msgid value).
+
+**Changing the wire** (`docs/protocol.md` section 15.3). Every client must change with it.
+
+1. Edit `wire.h`/`frame.h`.
+2. Confirm `wire_test` fails, then update its expected bytes.
+3. Update the tables and section 11 examples of `docs/protocol.md`, and the wire protocol section of this
+   document. `test_documented_examples` in `wire_test` checks the examples against the implementation.
+
+**Changing the start-up phases.** Add one row to `PHASES[]` in `ServerLib/server_app.cpp`, the two member
+functions, and one `phase_id` value at the same position; a `static_assert` keeps the table and the enum the same
+size. Update the phase table in this document and the expected traces in `tests/app_test.cpp`.
+
+Adding source files, `.proto` files and verifying a change: `docs/build.md`, "Change procedures".
 

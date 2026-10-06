@@ -6,7 +6,7 @@ How to build on each OS with CMake or the Visual Studio solution, and how to run
 and the tests. What the targets are is in `docs/architecture.md`.
 
 **Both build systems are maintained**, the CMake presets and the hand-maintained Visual Studio solution. Every change
-that affects the build goes into both (`CLAUDE.md` "규칙", Korean only).
+that affects the build goes into both, and both are verified.
 
 ## Build
 
@@ -122,7 +122,7 @@ References:
 - `ServerLib`'s reference to `ProtoLib` is for build order only (`LinkLibraryDependencies=false`); the libs are not merged.
 
 Adding or removing a source file touches three places (`CMakeLists.txt`, `.vcxproj`, `.vcxproj.filters`); the CTest
-`check_vs_sync` fails on drift. The procedure is in `CLAUDE.md` "변경 절차" (Korean only).
+`check_vs_sync` fails on drift. The procedure is in "Change procedures" below.
 
 ## Run
 
@@ -144,4 +144,26 @@ Adding or removing a source file touches three places (`CMakeLists.txt`, `.vcxpr
 - To pipe stdin into NetworkClient use git bash:
   `(sleep 1; echo hello; sleep 1; echo quit) | ./NetworkClient.exe 127.0.0.1 10000 alice`.
   PowerShell 5.1 script-block pipes do not reach a native process's stdin in time and hang.
+
+## Change procedures
+
+**Adding or removing a source file.** Update three places: that `CMakeLists.txt`, the `.vcxproj`, and the
+`.vcxproj.filters`.
+
+- The CTest `check_vs_sync` compares the vcxproj `ClCompile` list with the CMake target's `SOURCES` and fails on drift.
+- For `ProtoLib` it compares the `CustomBuild` `.proto` list.
+- A new project (target) must also be added to the check list in `tests/CMakeLists.txt` and to the `.sln`.
+- No compiler options in individual vcxproj files; edit `strandwire.props` / `strandwire.config.props` and keep
+  the values equal to the root `CMakeLists.txt`. The one exception is `ProtoLib.vcxproj`, which disables warnings
+  for generated code.
+
+**Adding a `.proto`.** Add it to `NETSYS_PROTO_FILES` in `ProtoLib/CMakeLists.txt`, to `CustomBuild`/`ClCompile`
+in `ProtoLib.vcxproj`, and to `.filters`. Package and message names determine the msgid: **renaming changes the
+wire contract.** Conventions (`docs/protocol.md` section 8): proto2, lower snake_case, suffixes `_req`/`_res`/`_noti`,
+the first field of a response is `required int32 error_code_ = 1`, error codes in ranges of 100 per domain.
+
+**Verifying a change.** Build and run the four CTest tests on Windows with CMake and with the VS solution, and
+on Linux (WSL2). Run the macOS check when the Mac is reachable; its repository is a GitHub clone, so push first.
+
+Adding a message, changing the wire and changing the start-up phases: `docs/architecture.md`, "Change procedures".
 

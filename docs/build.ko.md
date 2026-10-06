@@ -6,7 +6,7 @@ OS별로 CMake 또는 Visual Studio 솔루션으로 빌드하는 법과 서버, 
 타깃이 무엇인지는 `docs/architecture.ko.md`에 있다.
 
 **두 빌드 체계를 모두 유지한다.** CMake 프리셋과 손으로 관리하는 Visual Studio 솔루션이다. 빌드에 영향을 주는
-변경은 둘 다에 넣는다(`CLAUDE.md` "규칙").
+변경은 둘 다에 넣고 둘 다 검증한다.
 
 ## 빌드
 
@@ -122,7 +122,7 @@ protobuf:
 - `ServerLib`의 `ProtoLib` 참조는 빌드 순서 때문이다(`LinkLibraryDependencies=false`). 라이브러리는 합쳐지지 않는다.
 
 소스 파일을 추가하거나 지우면 세 곳(`CMakeLists.txt`, `.vcxproj`, `.vcxproj.filters`)을 건드린다. 어긋나면 CTest
-`check_vs_sync`가 실패한다. 절차는 `CLAUDE.md` "변경 절차"에 있다.
+`check_vs_sync`가 실패한다. 절차는 아래 "변경 절차"에 있다.
 
 ## 실행
 
@@ -144,3 +144,23 @@ protobuf:
 - NetworkClient에 stdin을 파이프로 넣으려면 git bash를 쓴다:
   `(sleep 1; echo hello; sleep 1; echo quit) | ./NetworkClient.exe 127.0.0.1 10000 alice`.
   PowerShell 5.1의 스크립트 블록 파이프는 네이티브 프로세스의 stdin에 제때 닿지 않아 멈춘다.
+
+## 변경 절차
+
+**소스 파일 추가/삭제.** 세 곳을 고친다: 해당 `CMakeLists.txt`, `.vcxproj`, `.vcxproj.filters`.
+
+- CTest `check_vs_sync`가 vcxproj의 `ClCompile` 목록과 CMake 타깃의 `SOURCES`를 비교해 어긋나면 실패한다.
+- `ProtoLib`는 `CustomBuild`의 `.proto` 목록을 비교한다.
+- 새 프로젝트(타깃)는 `tests/CMakeLists.txt`의 검사 목록과 `.sln`에도 추가한다.
+- 개별 vcxproj에 컴파일러 옵션을 두지 않는다. `strandwire.props` / `strandwire.config.props`를 고치고 값을 루트
+  `CMakeLists.txt`와 같게 유지한다. 유일한 예외는 생성 코드의 경고를 끄는 `ProtoLib.vcxproj`다.
+
+**`.proto` 추가.** `ProtoLib/CMakeLists.txt`의 `NETSYS_PROTO_FILES`, `ProtoLib.vcxproj`의
+`CustomBuild`/`ClCompile`, `.filters`에 추가한다. 패키지와 메시지 이름이 msgid를 결정한다: **이름을 바꾸면
+와이어 계약이 바뀐다.** 규약(`docs/protocol.ko.md` 8절): proto2, 소문자 snake_case, 접미사 `_req`/`_res`/`_noti`,
+응답의 첫 필드는 `required int32 error_code_ = 1`, 에러 코드는 도메인별 100 단위 범위.
+
+**변경 검증.** Windows에서 CMake와 VS 솔루션으로, Linux(WSL2)에서 빌드하고 CTest 테스트 넷을 돌린다. Mac이
+켜져 있으면 macOS 검사도 돌린다. Mac의 저장소는 GitHub 클론이므로 먼저 push한다.
+
+메시지 추가, 와이어 변경, 시작 단계 변경: `docs/architecture.ko.md`의 "변경 절차".
